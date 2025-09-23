@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>MESMTF — Patient Portal (Runnable)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .fade-in { animation: fadeIn .35s ease-in; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px);} to { opacity: 1; transform: translateY(0);} }
+    .chat-bubble { max-width: 80%; word-wrap: break-word; }
+    .scroll-auto { max-height: 360px; overflow-y: auto; }
+    .pill { display:inline-block; padding:.25rem .6rem; border-radius:999px; background:#eef2ff; color:#312e81; font-size:.85rem; }
+  </style>
+</head>
+<body class="min-h-screen bg-gray-100 font-sans">
+
+  <!-- Top nav -->
+  <header class="bg-white shadow">
+    <div class="max-w-7xl mx-auto flex items-center justify-between p-4">
+      <div class="flex items-center space-x-4">
+        <div class="rounded-full bg-blue-600 w-12 h-12 flex items-center justify-center text-white font-bold">M</div>
+        <div>
+          <div class="text-lg font-bold text-gray-800">MESMTF Patient Portal</div>
+          <div class="text-sm text-gray-500">Medical Expert System — Malaria & Typhoid</div>
+        </div>
+      </div>
+      <div class="flex items-center space-x-4">
+        <div class="text-sm text-gray-700">John Doe • <span class="text-xs text-gray-500">PT-001</span></div>
+        <button id="logoutBtn" class="bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded">Logout</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="max-w-7xl mx-auto mt-6 flex gap-6 px-4">
+    <!-- Sidebar -->
+    <aside class="w-64 bg-white rounded-lg shadow p-4 sticky top-6 h-[calc(100vh-96px)]">
+      <nav class="space-y-1">
+        <button class="w-full text-left px-3 py-2 rounded hover:bg-gray-50" onclick="render('dashboard')">🏠 Dashboard</button>
+        <button class="w-full text-left px-3 py-2 rounded hover:bg-gray-50" onclick="render('symptom')">🔍 Smart Symptom Checker</button>
+        <button class="w-full text-left px-3 py-2 rounded hover:bg-gray-50" onclick="render('education')">📚 Health Education Assistant</button>
+        <hr class="my-2" />
+        <button class="w-full text-left px-3 py-2 rounded hover:bg-gray-50" onclick="render('book')">📅 Book Appointment</button>
+        <button class="w-full text-left px-3 py-2 rounded hover:bg-gray-50" onclick="render('appointments')">🗒 My Appointments</button>
+        <button class="w-full text-left px-3 py-2 rounded hover:bg-gray-50" onclick="render('records')">📄 Medical Records</button>
+        <button class="w-full text-left px-3 py-2 rounded hover:bg-gray-50" onclick="render('prescriptions')">💊 Prescriptions</button>
+        <button class="w-full text-left px-3 py-2 rounded hover:bg-gray-50" onclick="render('treatment')">📈 Treatment Progress</button>
+        <button class="w-full text-left px-3 py-2 rounded hover:bg-gray-50" onclick="render('feedback')">⭐ Feedback</button>
+      </nav>
+      <div class="mt-6 text-xs text-gray-500">
+        <div class="mb-1">Quick tools</div>
+        <button class="mt-1 w-full text-left px-3 py-2 rounded bg-blue-50 text-blue-700" onclick="render('symptom')">Start Symptom Check</button>
+        <button class="mt-1 w-full text-left px-3 py-2 rounded bg-green-50 text-green-700" onclick="render('education')">Open Education Bot</button>
+      </div>
+    </aside>
+
+    <!-- Main content -->
+    <main id="mainContent" class="flex-1 min-h-[70vh] bg-white rounded-lg shadow p-6 fade-in">
+      <!-- dynamic content rendered here -->
+    </main>
+  </div>
+
+  <script>
+  // --- Data storage (localStorage-backed) ---
+  const sampleDoctors = [
+    { id: 'dr-smith', name: 'Dr. John Smith', specialization: 'Infectious Diseases' },
+    { id: 'dr-amen', name: 'Dr. Amena K.', specialization: 'General Practitioner' },
+  ];
+
+  // Load or initialize data
+  const storage = {
+    get(key, fallback) {
+      const raw = localStorage.getItem(key);
+      return raw ? JSON.parse(raw) : fallback;
+    },
+    set(key, val) { localStorage.setItem(key, JSON.stringify(val)); }
+  };
+
+  let appointments = storage.get('appointments', []);
+  let medicalRecords = storage.get('medicalRecords', [
+    { id: 'rec1', date: '2025-01-10', title: 'Malaria diagnosis', notes: 'Treated with antimalarials. Follow-up in 7 days.'},
+    { id: 'rec2', date: '2024-10-22', title: 'Typhoid treatment', notes: 'Antibiotics prescribed.'}
+  ]);
+  let prescriptions = storage.get('prescriptions', [
+    { id: 'pres1', date: '2025-01-10', meds: [{name:'Chloroquine', dose:'250mg', freq:'twice daily', duration:'3 days'}], issuedBy:'Dr. John Smith' }
+  ]);
+  let treatmentLogs = storage.get('treatmentLogs', [
+    { id:'tlog1', prescriptionId:'pres1', date:'2025-01-11', note:'Dose taken at 08:00', administeredBy:'Self' }
+  ]);
+  let feedbacks = storage.get('feedbacks', []);
+  storage.set('medicalRecords', medicalRecords);
+  storage.set('prescriptions', prescriptions);
+  storage.set('treatmentLogs', treatmentLogs);
+
+  // --- Utility helpers ---
+  function el(html){ const div=document.createElement('div'); div.innerHTML=html.trim(); return div.firstElementChild; }
+  function saveAll(){ storage.set('appointments', appointments); storage.set('medicalRecords', medicalRecords); storage.set('prescriptions', prescriptions); storage.set('treatmentLogs', treatmentLogs); storage.set('feedbacks', feedbacks); }
+
+  // --- Rule Engine for Malaria & Typhoid ---
+  // Define weighted symptom maps (VS=4, S=3, W=1, VW=0.5)
+  const diseaseRules = {
+    malaria: { weights: { fever:4, headache:3, fatigue:2, sweating:1, chills:2, vomiting:1, diarrhea:0.5 }, maxScore: 13 },
+    typhoid: { weights: { fever:4, abdominal_pain:3, vomiting:2, sore_throat:1, constipation:1, rash:0.5, loss_appetite:1 }, maxScore: 12 }
+  };
+
+  function runRuleEngine(symptomsObj){
+    // symptomsObj: { list: ['fever','headache',...'], freeText:'' }
+    const scores = { malaria:0, typhoid:0 };
+    const list = symptomsObj.list || [];
+    for(const s of list){
+      if (diseaseRules.malaria.weights[s]) scores.malaria += diseaseRules.malaria.weights[s];
+      if (diseaseRules.typhoid.weights[s]) scores.typhoid += diseaseRules.typhoid.weights[s];
+    }
+    // normalize to 0..1
+    const mnorm = Math.min(1, scores.malaria / diseaseRules.malaria.maxScore);
+    const tnorm = Math.min(1, scores.typhoid / diseaseRules.typhoid.maxScore);
+    return { scores: { malaria: mnorm, typhoid: tnorm }, raw: scores };
+  }
+
+  // Follow-up questions for discrimination
+  const followUps = {
+    malaria: [
+      { id:'chills', q: 'Do you experience chills or rigors (shivering)?', symptomKey: 'chills' },
+      { id:'sweating', q: 'Do you have night sweats?', symptomKey: 'sweating' }
+    ],
+    typhoid: [
+      { id:'vomiting', q:'Have you had vomiting recently?', symptomKey: 'vomiting' },
+      { id:'loss_appetite', q:'Have you lost appetite or noticed weight loss?', symptomKey: 'loss_appetite' }
+    ]
+  };
+
+  // --- Rendering functions for each module ---
+  function renderDashboard(){
+    const nextAppt = appointments.length ? appointments[0] : null;
+    const activePres = prescriptions.length;
+    const recordsCount = medicalRecords.length;
+    const healthStatus = 'Stable';
+
+    document.getElementById('mainContent').innerHTML = `
+      <div class="fade-in">
+        <h2 class="text-2xl font-bold mb-4">Welcome back, John Doe</h2>
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div class="bg-white p-4 rounded shadow">
+            <h3 class="text-sm font-semibold text-gray-500">Next Appointment</h3>
+            <div class="mt-2">${ nextAppt ? `${nextAppt.date} • ${nextAppt.doctorName}` : '<span class="text-gray-400">No upcoming appointments</span>'}</div>
+          </div>
+          <div class="bg-white p-4 rounded shadow">
+            <h3 class="text-sm font-semibold text-gray-500">Active Prescriptions</h3>
+            <div class="mt-2">${activePres} active</div>
+          </div>
+          <div class="bg-white p-4 rounded shadow">
+            <h3 class="text-sm font-semibold text-gray-500">Medical Records</h3>
+            <div class="mt-2">${recordsCount} entries</div>
+          </div>
+          <div class="bg-white p-4 rounded shadow">
+            <h3 class="text-sm font-semibold text-gray-500">Health Status</h3>
+            <div class="mt-2">${healthStatus}</div>
+          </div>
+        </div>
+
+        <div class="mt-6 bg-white p-4 rounded shadow">
+          <h3 class="text-lg font-semibold mb-3">Quick Actions</h3>
+          <div class="flex flex-wrap gap-3">
+            <button class="px-4 py-2 bg-red-500 text-white rounded" onclick="render('symptom')">Start Symptom Check</button>
+            <button class="px-4 py-2 bg-green-500 text-white rounded" onclick="render('education')">Open Education Assistant</button>
+            <button class="px-4 py-2 bg-blue-500 text-white rounded" onclick="render('book')">Book Appointment</button>
+            <button class="px-4 py-2 bg-gray-700 text-white rounded" onclick="render('records')">View Records</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  // Render Symptom Checker (conversation UI)
+  function renderSymptomChecker(){
+    document.getElementById('mainContent').innerHTML = `
+      <div>
+        <h2 class="text-2xl font-bold mb-4">Smart Symptom Checker</h2>
+        <div class="grid md:grid-cols-2 gap-6">
+          <div class="bg-white p-4 rounded shadow">
+            <h3 class="font-semibold mb-2">Tell us your symptoms (select any):</h3>
+            <div id="symptomCheckboxes" class="grid grid-cols-2 gap-2"></div>
+            <label class="block mt-3 text-sm text-gray-600">Other / details</label>
+            <textarea id="symptomFreeText" class="w-full mt-1 p-2 border rounded" placeholder="Describe anything else..."></textarea>
+            <div class="mt-4 flex gap-2">
+              <button class="px-4 py-2 bg-red-600 text-white rounded" id="analyzeBtn">Analyze</button>
+              <button class="px-4 py-2 bg-gray-200 rounded" id="clearSymptoms">Clear</button>
+            </div>
+            <p class="text-xs text-gray-500 mt-3">Note: This is a triage tool. Always consult a clinician for confirmation.</p>
+          </div>
+
+          <div class="bg-white p-4 rounded shadow flex flex-col">
+            <h3 class="font-semibold mb-2">Conversation</h3>
+            <div id="conversation" class="flex-1 space-y-3 overflow-y-auto scroll-auto p-2 border rounded"></div>
+            <div class="mt-3">
+              <input id="userReply" class="w-full p-2 border rounded" placeholder="Answer follow-up questions here..." />
+              <div class="flex gap-2 mt-2 justify-end">
+                <button class="px-4 py-2 bg-blue-600 text-white rounded" id="sendReply">Send</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    // populate symptom checkboxes
+    const canonical = [
+      { key:'fever', label:'Fever' },
+      { key:'headache', label:'Headache' },
+      { key:'fatigue', label:'Fatigue' },
+      { key:'abdominal_pain', label:'Abdominal pain' },
+      { key:'sweating', label:'Sweating' },
+      { key:'chills', label:'Chills' },
+      { key:'vomiting', label:'Vomiting' },
+      { key:'diarrhea', label:'Diarrhea' },
+      { key:'sore_throat', label:'Sore throat' },
+      { key:'rash', label:'Rash or skin changes' },
+      { key:'loss_appetite', label:'Loss of appetite' },
+      { key:'cough', label:'Cough' }
+    ];
+    const boxes = document.getElementById('symptomCheckboxes');
+    boxes.innerHTML = canonical.map(s=>`<label class="flex items-center gap-2 p-1"><input type="checkbox" value="${s.key}"/><span class="text-sm">${s.label}</span></label>`).join('');
+
+    // conversation state
+    const convEl = document.getElementById('conversation');
+    let convState = { step:'init', lastFollowups:[], selectedSymptoms: [], freeText:'', candidateScores:null };
+
+    function appendBot(text, small='') {
+      const msg = document.createElement('div');
+      msg.className = 'bg-gray-100 px-3 py-2 rounded chat-bubble';
+      msg.innerHTML = `<div class="text-sm text-gray-800">${text}</div><div class="text-xs text-gray-500 mt-1">${small}</div>`;
+      convEl.appendChild(msg);
+      convEl.scrollTop = convEl.scrollHeight;
+    }
+    function appendUser(text){
+      const msg = document.createElement('div');
+      msg.className='self-end bg-blue-600 text-white px-3 py-2 rounded chat-bubble ml-auto';
+      msg.textContent = text;
+      convEl.appendChild(msg);
+      convEl.scrollTop = convEl.scrollHeight;
+    }
+
+    // initial message
+    appendBot('Hello — I can help triage Malaria or Typhoid. Tell me about your symptoms or use the checklist.');
+
+    // analyze flow
+    document.getElementById('analyzeBtn').onclick = () => {
+      const checked = Array.from(boxes.querySelectorAll('input[type=checkbox]:checked')).map(i=>i.value);
+      const free = document.getElementById('symptomFreeText').value.trim();
+      convState.selectedSymptoms = checked;
+      convState.freeText = free;
+      const result = runRuleEngine({ list: checked, freeText: free });
+      convState.candidateScores = result.scores;
+
+      appendUser(`Symptoms: ${checked.map(k=>k.replace('_',' ')).join(', ') || free || '—'}`);
+      appendBot(`Initial candidates: Malaria (${Math.round(result.scores.malaria*100)}%), Typhoid (${Math.round(result.scores.typhoid*100)}%).`);
+
+      // decide follow-up questions: pick top disease(s) and ask 1-2 discriminating questions
+      const candidateOrder = Object.entries(result.scores).sort((a,b)=>b[1]-a[1]); // [ ['malaria',0.6], ...]
+      const top = candidateOrder[0][0];
+      const second = candidateOrder[1][0];
+
+      // create follow-ups that help distinguish if both similar
+      let toAsk = [];
+      if (result.scores.malaria >= 0.5 || result.scores.typhoid >= 0.5) {
+        // ask targeted followups for top (and if second close ask one from second)
+        toAsk = [...followUps[top]];
+        if (Math.abs(result.scores.malaria - result.scores.typhoid) < 0.15) {
+          // also include one from the other disease
+          toAsk.push(...followUps[second].slice(0,1));
+        }
+      } else {
+        // low confidence -> broader symptom clarifiers
+        toAsk = [{id:'fever_duration', q:'How long have you had the fever? (days)', symptomKey: null}];
+      }
+
+      convState.lastFollowups = toAsk.map(f=>f.symptomKey || f.id);
+      // display first follow-up question
+      appendBot(toAsk[0].q, 'Please answer precisely (yes/no or short text).');
+
+      // set step
+      convState.step = 'asking';
+    };
+
+    // send reply handler
+    document.getElementById('sendReply').onclick = () => {
+      const reply = document.getElementById('userReply').value.trim();
+      if(!reply) return;
+      appendUser(reply);
+      document.getElementById('userReply').value = '';
+
+      // interpret reply as boolean for yes/no when applicable
+      const normalized = reply.toLowerCase();
+      const positive = ['yes','y','yeah','yep','true','1','sometimes','often','always'];
+      const negative = ['no','n','nope','not','never','none'];
+      const isYes = positive.some(p=>normalized.includes(p));
+      const isNo = negative.some(n=>normalized.includes(n));
+      // update selectedSymptoms based on lastFollowups
+      if(convState.lastFollowups && convState.lastFollowups.length){
+        const key = convState.lastFollowups.shift();
+        if(key && isYes) {
+          // add symptom key if not present
+          if(!convState.selectedSymptoms.includes(key)) convState.selectedSymptoms.push(key);
+        }
+      }
+
+      // re-run scoring
+      const res = runRuleEngine({ list: convState.selectedSymptoms, freeText: convState.freeText });
+      convState.candidateScores = res.scores;
+
+      // If still more follow-ups (we asked multiple), ask next, else finalize
+      // For simplicity, if lastFollowups has more entries ask next, else finalize
+      if(convState.lastFollowups && convState.lastFollowups.length){
+        // find a question data for next
+        const nextKey = convState.lastFollowups[0];
+        // try to find question text
+        let qText = 'Please provide more details.';
+        for(const d of ['malaria','typhoid']){
+          const f = followUps[d].find(x=>x.symptomKey===nextKey);
+          if(f){ qText=f.q; break; }
+        }
+        if(qText === 'Please provide more details.' && nextKey==='fever_duration') qText = 'How many days have you had fever?';
+        appendBot(qText, 'Short answer please.');
+      } else {
+        // finalize decision
+        const m = Math.round(convState.candidateScores.malaria*100);
+        const t = Math.round(convState.candidateScores.typhoid*100);
+        let resultText = `Final estimate — Malaria: ${m}%, Typhoid: ${t}%.`;
+        let recommended = '';
+        if(convState.candidateScores.malaria >= 0.7 && m>t) {
+          recommended = 'Likely Malaria. Recommendation: Book appointment and consider antimalarial testing. If you have severe signs (breathlessness, confusion), seek emergency care.';
+        } else if(convState.candidateScores.typhoid >= 0.7 && t>m) {
+          recommended = 'Likely Typhoid Fever. Recommendation: Book appointment for confirmatory testing and antibiotics.';
+        } else if(Math.max(convState.candidateScores.malaria, convState.candidateScores.typhoid) >= 0.4){
+          recommended = 'Possible Malaria or Typhoid — results are inconclusive. Please book a doctor for confirmation.';
+        } else {
+          recommended = 'Symptoms do not strongly match Malaria or Typhoid. Consider other causes and consult a clinician.';
+        }
+
+        appendBot(resultText);
+        appendBot(recommended);
+        // show CTAs in conversation area
+        const cta = document.createElement('div');
+        cta.className = 'mt-2 flex gap-2';
+        cta.innerHTML = `<button class="px-3 py-1 bg-blue-600 text-white rounded" onclick="render('book')">Book Appointment</button>
+                         <button class="px-3 py-1 bg-green-600 text-white rounded" onclick="render('education')">Learn More</button>`;
+        convEl.appendChild(cta);
+        convEl.scrollTop = convEl.scrollHeight;
+
+        // log as a "temporary" record (not saved to medicalRecords automatically)
+        convState.step = 'done';
+      }
+    };
+
+    // clear handler
+    document.getElementById('clearSymptoms').onclick = () => {
+      document.getElementById('symptomFreeText').value = '';
+      boxes.querySelectorAll('input[type=checkbox]').forEach( cb => cb.checked = false );
+      convEl.innerHTML = '';
+      appendBot('Cleared. You can start again.');
+    };
+  }
+
+  // Education assistant: simple keyword-based bot (no external API)
+  function renderEducation(){
+    document.getElementById('mainContent').innerHTML = `
+      <div>
+        <h2 class="text-2xl font-bold mb-4">Health Education Assistant</h2>
+        <div class="grid md:grid-cols-3 gap-6">
+          <div class="md:col-span-2 bg-white p-4 rounded shadow flex flex-col">
+            <div id="eduChat" class="flex-1 p-2 border rounded scroll-auto mb-3"></div>
+            <div class="flex gap-2">
+              <input id="eduInput" class="flex-1 p-2 border rounded" placeholder="Ask about Malaria, Typhoid, prevention..." />
+              <button id="eduSend" class="px-4 py-2 bg-green-600 text-white rounded">Ask</button>
+            </div>
+          </div>
+          <aside class="bg-white p-4 rounded shadow">
+            <h4 class="font-semibold mb-2">Quick Topics</h4>
+            <ul class="space-y-2 text-sm text-gray-700">
+              <li><button class="text-left w-full" onclick="eduAsk('What are the symptoms of malaria?')">• Symptoms of Malaria</button></li>
+              <li><button class="text-left w-full" onclick="eduAsk('How to prevent typhoid?')">• Prevent Typhoid</button></li>
+              <li><button class="text-left w-full" onclick="eduAsk('When to see a doctor?')">• When to see a doctor</button></li>
+            </ul>
+          </aside>
+        </div>
+      </div>
+    `;
+
+    const chat = document.getElementById('eduChat');
+    function botSay(text){ const d=document.createElement('div'); d.className='bg-gray-100 p-2 rounded mb-2'; d.innerText=text; chat.appendChild(d); chat.scrollTop = chat.scrollHeight; }
+    function userSay(text){ const d=document.createElement('div'); d.className='bg-blue-600 text-white p-2 rounded mb-2 ml-auto'; d.innerText=text; chat.appendChild(d); chat.scrollTop = chat.scrollHeight; }
+
+    // seed intro
+    botSay('Hi — I can provide reliable education on Malaria and Typhoid. Ask me a question or pick a quick topic.');
+
+    document.getElementById('eduSend').onclick = () => {
+      const q = document.getElementById('eduInput').value.trim();
+      if(!q) return;
+      userSay(q);
+      document.getElementById('eduInput').value = '';
+      eduRespond(q);
+    };
+
+    window.eduAsk = (q) => {
+      userSay(q);
+      eduRespond(q);
+    };
+
+    function eduRespond(q){
+      const qq = q.toLowerCase();
+      // keyword based responses
+      if(qq.includes('malaria') && qq.includes('symptom')) {
+        botSay('Malaria commonly causes fever, chills, headache, muscle aches, and fatigue. Severe malaria can cause breathing difficulties and altered consciousness.');
+      } else if(qq.includes('prevent') && qq.includes('malaria')) {
+        botSay('Prevent malaria by using insecticide-treated nets, indoor residual spraying, and taking prophylaxis where recommended.');
+      } else if(qq.includes('typhoid') && qq.includes('prevent')) {
+        botSay('Typhoid prevention: safe water, proper sanitation, handwashing, and vaccination where available.');
+      } else if(qq.includes('when to see') || qq.includes('when to go') || qq.includes('emergency')) {
+        botSay('Seek urgent care if you have difficulty breathing, persistent vomiting, extreme weakness, confusion, or high persistent fever.');
+      } else {
+        botSay('That is a great question. For that topic: check official resources (WHO/CDC) or consult a clinician for personalized advice. Meanwhile, general guidance: rest, hydrate, and get tested.');
+      }
+    }
+  }
+
+  // Appointment booking
+  function renderBookAppointment(){
+    document.getElementById('mainContent').innerHTML = `
+      <div>
+        <h2 class="text-2xl font-bold mb-4">Book Appointment</h2>
+        <div class="bg-white p-4 rounded shadow">
+          <form id="bookForm" class="space-y-3">
+            <label class="block">Select Doctor</label>
+            <select id="bookDoctor" class="w-full p-2 border rounded"></select>
+            <label class="block">Choose Date & Time</label>
+            <input id="bookDate" type="datetime-local" class="w-full p-2 border rounded" required />
+            <label class="block">Reason</label>
+            <textarea id="bookReason" class="w-full p-2 border rounded" placeholder="Describe reason..."></textarea>
+            <div class="flex gap-2">
+              <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded">Confirm Booking</button>
+              <button type="button" class="px-4 py-2 bg-gray-200 rounded" onclick="render('appointments')">View My Appointments</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    `;
+    const sel = document.getElementById('bookDoctor');
+    sel.innerHTML = sampleDoctors.map(d=>`<option value="${d.id}">${d.name} — ${d.specialization}</option>`).join('');
+    document.getElementById('bookForm').onsubmit = (e) => {
+      e.preventDefault();
+      const doctorId = document.getElementById('bookDoctor').value;
+      const doctor = sampleDoctors.find(d=>d.id===doctorId);
+      const when = document.getElementById('bookDate').value;
+      const reason = document.getElementById('bookReason').value;
+      const appt = { id:'a-'+Date.now(), date:when, doctorId:doctorId, doctorName:doctor.name, reason, status:'requested' };
+      appointments.unshift(appt);
+      saveAll();
+      alert('Appointment requested. Reception will confirm.');
+      render('appointments');
+    };
+  }
+
+  // list appointments
+  function renderAppointments(){
+    document.getElementById('mainContent').innerHTML = `
+      <div>
+        <h2 class="text-2xl font-bold mb-4">My Appointments</h2>
+        <div class="space-y-3" id="apptsList"></div>
+      </div>
+    `;
+    const list = document.getElementById('apptsList');
+    if(!appointments.length) list.innerHTML = `<div class="bg-white p-4 rounded shadow text-gray-500">No appointments yet.</div>`;
+    else {
+      list.innerHTML = appointments.map(a=>`
+        <div class="bg-white p-4 rounded shadow flex justify-between items-start">
+          <div>
+            <div class="font-semibold">${a.doctorName} • ${a.date ? new Date(a.date).toLocaleString() : '—'}</div>
+            <div class="text-sm text-gray-600">${a.reason || 'No reason provided'}</div>
+            <div class="text-xs mt-1">Status: <span class="pill">${a.status}</span></div>
+          </div>
+          <div class="flex flex-col gap-2">
+            ${a.status !== 'cancelled' ? `<button class="px-3 py-1 bg-yellow-500 text-white rounded" onclick="cancelAppt('${a.id}')">Cancel</button>` : ''}
+            <button class="px-3 py-1 bg-blue-600 text-white rounded" onclick="viewAppt('${a.id}')">Details</button>
+          </div>
+        </div>
+      `).join('');
+    }
+  }
+
+  function cancelAppt(id){
+    if(!confirm('Cancel this appointment?')) return;
+    appointments = appointments.map(a=> a.id===id ? {...a, status:'cancelled'} : a);
+    saveAll();
+    render('appointments');
+  }
+  function viewAppt(id){
+    const a = appointments.find(x=>x.id===id);
+    if(!a) return alert('Not found');
+    document.getElementById('mainContent').innerHTML = `
+      <div>
+        <h2 class="text-2xl font-bold mb-4">Appointment Details</h2>
+        <div class="bg-white p-4 rounded shadow">
+          <div><strong>Doctor:</strong> ${a.doctorName}</div>
+          <div><strong>Date:</strong> ${a.date ? new Date(a.date).toLocaleString() : 'TBD'}</div>
+          <div><strong>Reason:</strong> ${a.reason||'—'}</div>
+          <div class="mt-3 flex gap-2">
+            ${a.status!=='cancelled'? `<button class="px-3 py-1 bg-yellow-500 text-white rounded" onclick="cancelAppt('${a.id}')">Cancel</button>` : ''}
+            <button class="px-3 py-1 bg-gray-200 rounded" onclick="render('appointments')">Back</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  // Medical records
+  function renderRecords(){
+    document.getElementById('mainContent').innerHTML = `
+      <div>
+        <h2 class="text-2xl font-bold mb-4">Medical Records</h2>
+        <div class="space-y-3" id="recordsList"></div>
+        <div class="mt-4 bg-white p-3 rounded shadow">
+          <h4 class="font-semibold mb-2">Upload a record (mock)</h4>
+          <input id="recTitle" class="w-full p-2 border rounded mb-2" placeholder="Title (e.g., Lab result)"/>
+          <textarea id="recNotes" class="w-full p-2 border rounded" placeholder="Notes"></textarea>
+          <div class="mt-2 flex gap-2"><button class="px-3 py-1 bg-blue-600 text-white rounded" onclick="uploadRecord()">Upload</button></div>
+        </div>
+      </div>
+    `;
+    const list = document.getElementById('recordsList');
+    list.innerHTML = medicalRecords.map(r=>`
+      <div class="bg-white p-3 rounded shadow">
+        <div class="flex justify-between items-start">
+          <div>
+            <div class="font-semibold">${r.title}</div>
+            <div class="text-xs text-gray-500">${r.date}</div>
+            <div class="mt-1 text-sm text-gray-700">${r.notes}</div>
+          </div>
+        </div>
+      </div>
+    `).join('');
+  }
+  function uploadRecord(){
+    const title = document.getElementById('recTitle').value.trim();
+    const notes = document.getElementById('recNotes').value.trim();
+    if(!title) return alert('Enter title');
+    const rec = { id:'r-'+Date.now(), date: new Date().toISOString().split('T')[0], title, notes };
+    medicalRecords.unshift(rec);
+    saveAll();
+    alert('Record uploaded (mock)');
+    render('records');
+  }
+
+  // Prescriptions
+  function renderPrescriptions(){
+    document.getElementById('mainContent').innerHTML = `
+      <div>
+        <h2 class="text-2xl font-bold mb-4">Prescriptions</h2>
+        <div id="presList" class="space-y-3"></div>
+      </div>
+    `;
+    const pdiv = document.getElementById('presList');
+    if(!prescriptions.length) pdiv.innerHTML = `<div class="bg-white p-3 rounded shadow text-gray-500">No prescriptions</div>`;
+    else pdiv.innerHTML = prescriptions.map(p=>`
+      <div class="bg-white p-3 rounded shadow">
+        <div class="flex justify-between items-start">
+          <div>
+            <div class="font-semibold">Issued by: ${p.issuedBy}</div>
+            <div class="text-xs text-gray-500">${p.date}</div>
+            <div class="mt-2 text-sm">${p.meds.map(m=>`${m.name} • ${m.dose} • ${m.freq} • ${m.duration}`).join('<br/>')}</div>
+          </div>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  // Treatment progress
+  function renderTreatment(){
+    document.getElementById('mainContent').innerHTML = `
+      <div>
+        <h2 class="text-2xl font-bold mb-4">Treatment Progress</h2>
+        <div id="tlogList" class="space-y-3"></div>
+      </div>
+    `;
+    const tdiv = document.getElementById('tlogList');
+    if(!treatmentLogs.length) tdiv.innerHTML = `<div class="bg-white p-3 rounded shadow text-gray-500">No treatment logs</div>`;
+    else tdiv.innerHTML = treatmentLogs.map(t=>`
+      <div class="bg-white p-3 rounded shadow">
+        <div class="font-semibold">${t.date}</div>
+        <div class="text-sm text-gray-700">${t.note}</div>
+        <div class="text-xs text-gray-500 mt-1">By: ${t.administeredBy}</div>
+      </div>
+    `).join('');
+  }
+
+  // Feedback
+  function renderFeedback(){
+    document.getElementById('mainContent').innerHTML = `
+      <div>
+        <h2 class="text-2xl font-bold mb-4">Feedback</h2>
+        <div class="bg-white p-4 rounded shadow">
+          <label class="block">Rate your overall experience</label>
+          <div class="mt-2 flex gap-2" id="stars"></div>
+          <textarea id="fbText" class="w-full mt-3 p-2 border rounded" placeholder="Optional comments..."></textarea>
+          <div class="mt-3"><button class="px-4 py-2 bg-yellow-500 text-white rounded" onclick="submitFeedback()">Submit</button></div>
+        </div>
+        <div class="mt-4" id="pastFeedback"></div>
+      </div>
+    `;
+    const stars = document.getElementById('stars');
+    for(let i=1;i<=5;i++){
+      const b = document.createElement('button');
+      b.className = 'px-3 py-1 bg-gray-200 rounded';
+      b.textContent = i+'★';
+      b.onclick = ()=> { window.selectedRating = i; highlightStars(i); };
+      stars.appendChild(b);
+    }
+    highlightStars(0);
+    showPastFeedback();
+  }
+  function highlightStars(n){
+    const children = document.getElementById('stars').children;
+    for(let i=0;i<children.length;i++){
+      children[i].style.background = (i < n) ? '#fef3c7' : '#e5e7eb';
+    }
+  }
+  function submitFeedback(){
+    const text = document.getElementById('fbText').value.trim();
+    const rating = window.selectedRating || 0;
+    feedbacks.unshift({ id:'f-'+Date.now(), rating, text, date: new Date().toISOString() });
+    saveAll();
+    alert('Thanks for your feedback!');
+    render('feedback');
+  }
+  function showPastFeedback(){
+    const div = document.getElementById('pastFeedback');
+    if(!feedbacks.length) { div.innerHTML = `<div class="mt-3 bg-white p-3 rounded shadow text-gray-500">No feedback yet.</div>`; return; }
+    div.innerHTML = feedbacks.map(f=>`
+      <div class="bg-white p-3 rounded shadow mt-2">
+        <div class="text-sm text-gray-600">${new Date(f.date).toLocaleString()} — ${'★'.repeat(f.rating)}</div>
+        <div class="mt-1">${f.text || '<span class="text-gray-400">No comment</span>'}</div>
+      </div>
+    `).join('');
+  }
+
+  // Render dispatcher
+  function render(page){
+    switch(page){
+      case 'dashboard': renderDashboard(); break;
+      case 'symptom': renderSymptomChecker(); break;
+      case 'education': renderEducation(); break;
+      case 'book': renderBookAppointment(); break;
+      case 'appointments': renderAppointments(); break;
+      case 'records': renderRecords(); break;
+      case 'prescriptions': renderPrescriptions(); break;
+      case 'treatment': renderTreatment(); break;
+      case 'feedback': renderFeedback(); break;
+      default: renderDashboard();
+    }
+  }
+
+  // init
+  render('dashboard');
+
+  // convenience functions for inline onclicks used earlier
+  window.render = render;
+  window.runRuleEngine = runRuleEngine;
+
+  // logout (just reload to simulate)
+  document.getElementById('logoutBtn').onclick = ()=> {
+    if(confirm('Log out?')) location.reload();
+  };
+  </script>
+</body>
+</html>

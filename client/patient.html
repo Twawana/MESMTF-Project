@@ -658,17 +658,14 @@
     }
   }
 
-  // init
   render('dashboard');
+  document.getElementById('logoutBtn').onclick=()=>{ if(confirm('Logout?')) window.location.href = 'index.html'; };
 
   // convenience functions for inline onclicks used earlier
   window.render = render;
   window.runRuleEngine = runRuleEngine;
 
-  // logout (just reload to simulate)
-  document.getElementById('logoutBtn').onclick = ()=> {
-    if(confirm('Log out?')) location.reload();
-  };
+
   </script>
 </body>
 </html>

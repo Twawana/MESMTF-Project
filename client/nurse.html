@@ -229,8 +229,8 @@
   }
 
   // init
-  render('dashboard');
-  document.getElementById('logoutBtn').onclick=()=>{ if(confirm('Logout?')) location.reload(); };
+ render('dashboard');
+  document.getElementById('logoutBtn').onclick=()=>{ if(confirm('Logout?')) window.location.href = 'index.html'; };
 
   // expose
   window.render=render;

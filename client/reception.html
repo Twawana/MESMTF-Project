@@ -535,8 +535,8 @@
   }
 
   // init
-  render('dashboard');
-  document.getElementById('logoutBtn').onclick = ()=>{ if(confirm('Log out?')) location.reload(); };
+ render('dashboard');
+  document.getElementById('logoutBtn').onclick=()=>{ if(confirm('Logout?')) window.location.href = 'index.html'; };
 
   // expose some functions for inline onclicks
   window.render = render;

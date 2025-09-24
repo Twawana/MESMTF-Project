@@ -46,8 +46,27 @@
     </style>
 </head>
 <body class="min-h-screen bg-gray-100">
-    <!-- Login/Landing Page -->
-    <div id="landingPage" class="min-h-screen gradient-bg">
+    <!-- Redirect to Login -->
+    <div id="landingPage" class="min-h-screen gradient-bg flex items-center justify-center">
+        <div class="text-center text-white">
+            <div class="mb-8">
+                <div class="text-6xl mb-4">🏥</div>
+                <h1 class="text-4xl font-bold mb-2">MESMTF</h1>
+                <p class="text-xl opacity-90">Medical Expert System for Malaria and Typhoid Fever</p>
+            </div>
+            <div class="bg-white/10 backdrop-blur-sm rounded-lg p-6 max-w-md mx-auto">
+                <p class="mb-4">Redirecting to login page...</p>
+                <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Redirect to login page after a short delay
+        setTimeout(() => {
+            window.location.href = 'login.html';
+        }, 2000);
+    </script>
         <div class="container mx-auto px-4 py-8">
             <!-- Header -->
             <div class="text-center mb-12">

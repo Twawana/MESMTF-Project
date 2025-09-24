@@ -28,9 +28,12 @@
         </div>
       </div>
       <div class="flex items-center space-x-4">
-        <div class="text-sm text-gray-700">Pharmacist Mike • <span class="text-xs text-gray-500">Pharmacist</span></div>
+        <div class="text-sm text-gray-700">
+          <span data-user-name>Loading...</span> •
+          <span class="text-xs text-gray-500" data-user-role>Pharmacist</span>
+        </div>
         <button id="dashboardBtn" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded mr-2">Dashboard</button>
-        <button id="logoutBtn" class="bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded">Logout</button>
+        <button data-logout class="bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded">Logout</button>
       </div>
     </div>
   </header>
@@ -51,6 +54,29 @@
     <main id="mainContent" class="flex-1 min-h-[70vh] bg-white rounded-lg shadow p-6 fade-in">
     </main>
   </div>
+
+  <!-- API Integration Scripts -->
+  <script type="module" src="frontend/js/api/config.js"></script>
+  <script type="module" src="frontend/js/api/httpClient.js"></script>
+  <script type="module" src="frontend/js/api/auth.js"></script>
+  <script type="module" src="frontend/js/api/services.js"></script>
+  <script type="module" src="frontend/js/auth-guard.js"></script>
+  <link rel="stylesheet" href="frontend/css/api-components.css">
+
+  <script type="module">
+    import AuthGuard from './frontend/js/auth-guard.js';
+    import { PrescriptionService, PatientService, UtilityService } from './frontend/js/api/services.js';
+
+    // Initialize authentication guard for pharmacist role
+    if (!AuthGuard.init(['pharmacist'])) {
+      throw new Error('Authentication failed');
+    }
+
+    // Make services available globally
+    window.PrescriptionService = PrescriptionService;
+    window.PatientService = PatientService;
+    window.UtilityService = UtilityService;
+  </script>
 
   <script>
   // -------------------------

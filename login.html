@@ -125,78 +125,63 @@
         </div>
     </div>
 
-    <script>
-        // Get users from localStorage or initialize with default users
-        let users = JSON.parse(localStorage.getItem('users')) || [
-            {id: 1, username: 'admin', password: 'admin123', role: 'admin', name: 'System Administrator', email: 'admin@moh.gov'},
-            {id: 2, username: 'dr.smith', password: 'doc123', role: 'doctor', name: 'Dr. John Smith', email: 'j.smith@moh.gov', specialization: 'Internal Medicine'},
-            {id: 3, username: 'nurse.jane', password: 'nurse123', role: 'nurse', name: 'Jane Doe', email: 'j.doe@moh.gov', department: 'General Ward'},
-            {id: 4, username: 'pharm.mike', password: 'pharm123', role: 'pharmacist', name: 'Mike Johnson', email: 'm.johnson@moh.gov'},
-            {id: 5, username: 'recep.mary', password: 'recep123', role: 'receptionist', name: 'Mary Wilson', email: 'm.wilson@moh.gov'}
-        ];
+    <!-- API Integration Scripts -->
+    <script type="module" src="frontend/js/api/config.js"></script>
+    <script type="module" src="frontend/js/api/httpClient.js"></script>
+    <script type="module" src="frontend/js/api/auth.js"></script>
+    <script type="module" src="frontend/js/api/services.js"></script>
+    <link rel="stylesheet" href="frontend/css/api-components.css">
 
-        // Save users to localStorage if not already saved
-        if (!localStorage.getItem('users')) {
-            localStorage.setItem('users', JSON.stringify(users));
+    <script type="module">
+        import { AuthService } from './frontend/js/api/auth.js';
+        import { UtilityService } from './frontend/js/api/services.js';
+
+        // Check if user is already logged in
+        if (AuthService.isAuthenticated) {
+            AuthService.redirectToRolePage();
         }
 
         // Handle login form submission
-        document.getElementById('loginForm').addEventListener('submit', function(e) {
+        document.getElementById('loginForm').addEventListener('submit', async function(e) {
             e.preventDefault();
-            
-            const username = document.getElementById('username').value;
+
+            const username = document.getElementById('username').value.trim();
             const password = document.getElementById('password').value;
             const remember = document.getElementById('remember').checked;
-            
-            // Find user with matching credentials
-            const user = users.find(u => u.username === username && u.password === password);
-            
-            if (user) {
-                // Store current user info
-                const userInfo = {
-                    id: user.id,
-                    username: user.username,
-                    role: user.role,
-                    name: user.name
-                };
-                
-                // Save to sessionStorage (or localStorage if "Remember me" is checked)
-                if (remember) {
-                    localStorage.setItem('currentUser', JSON.stringify(userInfo));
+            const submitBtn = document.querySelector('button[type="submit"]');
+
+            // Validate inputs
+            if (!username || !password) {
+                showMessage('Please enter both username and password!', 'error');
+                return;
+            }
+
+            // Show loading state
+            UtilityService.showLoading(submitBtn);
+
+            try {
+                // Attempt login via API
+                const result = await AuthService.login({
+                    username,
+                    password,
+                    rememberMe: remember
+                });
+
+                if (result.success) {
+                    showMessage('Login successful! Redirecting...', 'success');
+
+                    // Redirect based on user role after a short delay
+                    setTimeout(() => {
+                        AuthService.redirectToRolePage();
+                    }, 1500);
                 } else {
-                    sessionStorage.setItem('currentUser', JSON.stringify(userInfo));
+                    showMessage(result.error || 'Invalid username or password!', 'error');
                 }
-                
-                // Show success message and redirect
-                showMessage('Login successful! Redirecting...', 'success');
-                
-                // Redirect based on user role
-                setTimeout(() => {
-                    switch(user.role) {
-                        case 'patient':
-                            window.location.href = 'patient.html';
-                            break;
-                        case 'doctor':
-                            window.location.href = 'doctor.html';
-                            break;
-                        case 'nurse':
-                            window.location.href = 'nurse.html';
-                            break;
-                        case 'pharmacist':
-                            window.location.href = 'patientsPage.html';
-                            break;
-                        case 'receptionist':
-                            window.location.href = 'reception.html';
-                            break;
-                        case 'admin':
-                            window.location.href = 'admin.html';
-                            break;
-                        default:
-                            window.location.href = 'dashboard.html';
-                    }
-                }, 1500);
-            } else {
-                showMessage('Invalid username or password!', 'error');
+            } catch (error) {
+                console.error('Login error:', error);
+                showMessage('Login failed. Please try again.', 'error');
+            } finally {
+                UtilityService.hideLoading(submitBtn);
             }
         });
 

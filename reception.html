@@ -25,9 +25,12 @@
         </div>
       </div>
       <div class="flex items-center space-x-4">
-        <div class="text-sm text-gray-700">Reception • <span class="text-xs text-gray-500">Logged in</span></div>
+        <div class="text-sm text-gray-700">
+          <span data-user-name>Loading...</span> •
+          <span class="text-xs text-gray-500" data-user-role>Receptionist</span>
+        </div>
         <button id="dashboardBtn" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded mr-2">Dashboard</button>
-        <button id="logoutBtn" class="bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded">Logout</button>
+        <button data-logout class="bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded">Logout</button>
       </div>
     </div>
   </header>
@@ -56,20 +59,69 @@
     </main>
   </div>
 
+  <!-- API Integration Scripts -->
+  <script type="module" src="frontend/js/api/config.js"></script>
+  <script type="module" src="frontend/js/api/httpClient.js"></script>
+  <script type="module" src="frontend/js/api/auth.js"></script>
+  <script type="module" src="frontend/js/api/services.js"></script>
+  <script type="module" src="frontend/js/auth-guard.js"></script>
+  <link rel="stylesheet" href="frontend/css/api-components.css">
+
+  <script type="module">
+    import AuthGuard from './frontend/js/auth-guard.js';
+    import { PatientService, AppointmentService, UserService, UtilityService } from './frontend/js/api/services.js';
+
+    // Initialize authentication guard for receptionist role
+    if (!AuthGuard.init(['receptionist'])) {
+      throw new Error('Authentication failed');
+    }
+
+    // Make services available globally
+    window.PatientService = PatientService;
+    window.AppointmentService = AppointmentService;
+    window.UserService = UserService;
+    window.UtilityService = UtilityService;
+  </script>
+
   <script>
   // -------------------------
-  // Data & localStorage utils
+  // Data Management
   // -------------------------
-  const storage = {
-    get(k, fallback) {
-      const raw = localStorage.getItem(k);
-      return raw ? JSON.parse(raw) : fallback;
-    },
-    set(k, v){ localStorage.setItem(k, JSON.stringify(v)); }
-  };
+  let patients = [];
+  let appointments = [];
+  let doctors = [];
 
-  // Sample data seeds (only if not present)
-  let patients = storage.get('re_patients', null);
+  // Load initial data
+  async function loadInitialData() {
+    try {
+      UtilityService.showNotification('Loading data...', 'info', 2000);
+
+      const [patientsRes, appointmentsRes, usersRes] = await Promise.all([
+        PatientService.getPatients({ limit: 100 }),
+        AppointmentService.getAppointments({ limit: 100 }),
+        UserService.getUsers({ role: 'doctor' })
+      ]);
+
+      patients = patientsRes.data || [];
+      appointments = appointmentsRes.data || [];
+      doctors = usersRes.data || [];
+
+      // Refresh current view
+      render('dashboard');
+
+    } catch (error) {
+      console.error('Error loading data:', error);
+      UtilityService.showNotification('Error loading data', 'error');
+    }
+  }
+
+  // Initialize data loading
+  if (window.PatientService) {
+    loadInitialData();
+  } else {
+    // Wait for services to be available
+    setTimeout(loadInitialData, 1000);
+  }
   if(!patients) {
     patients = [
       { id:'p1', firstName:'John', lastName:'Doe', name:'John Doe', dob:'1995-05-12', gender:'Male', phone:'081234567', address:'123 Main St', notes:'' },

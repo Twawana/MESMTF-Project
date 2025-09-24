@@ -25,9 +25,12 @@
         </div>
       </div>
       <div class="flex items-center space-x-4">
-        <div class="text-sm text-gray-700">Dr. Smith • <span class="text-xs text-gray-500">Doctor</span></div>
+        <div class="text-sm text-gray-700">
+          <span data-user-name>Loading...</span> •
+          <span class="text-xs text-gray-500" data-user-role>Doctor</span>
+        </div>
         <button id="dashboardBtn" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded mr-2">Dashboard</button>
-        <button id="logoutBtn" class="bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded">Logout</button>
+        <button data-logout class="bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded">Logout</button>
       </div>
     </div>
   </header>
@@ -49,31 +52,144 @@
     </main>
   </div>
 
+  <!-- API Integration Scripts -->
+  <script type="module" src="frontend/js/api/config.js"></script>
+  <script type="module" src="frontend/js/api/httpClient.js"></script>
+  <script type="module" src="frontend/js/api/auth.js"></script>
+  <script type="module" src="frontend/js/api/services.js"></script>
+  <script type="module" src="frontend/js/auth-guard.js"></script>
+  <link rel="stylesheet" href="frontend/css/api-components.css">
+
+  <script type="module">
+    import AuthGuard from './frontend/js/auth-guard.js';
+    import { PatientService, AppointmentService, DiagnosisService, PrescriptionService } from './frontend/js/api/services.js';
+
+    // Initialize authentication guard for doctor role
+    if (!AuthGuard.init(['doctor'])) {
+      // User is not authenticated or doesn't have doctor role
+      // AuthGuard will handle the redirect
+      throw new Error('Authentication failed');
+    }
+  </script>
+
   <script>
   // -------------------------
-  // Data
+  // Data & Utilities
   // -------------------------
-  let patients = JSON.parse(localStorage.getItem('doc_patients')) || [
-    { id:'p1', name:'John Doe', condition:'Fever', room:'101A' },
-    { id:'p2', name:'Jane Smith', condition:'Headache', room:'102B' }
-  ];
-  let diagnoses = JSON.parse(localStorage.getItem('doc_diagnoses')) || [];
-  let prescriptions = JSON.parse(localStorage.getItem('doc_prescriptions')) || [];
-  function save(){ localStorage.setItem('doc_patients', JSON.stringify(patients)); localStorage.setItem('doc_diagnoses', JSON.stringify(diagnoses)); localStorage.setItem('doc_prescriptions', JSON.stringify(prescriptions)); }
+  let patients = [];
+  let diagnoses = [];
+  let prescriptions = [];
+  let appointments = [];
+
+  // Import API services
+  let PatientService, AppointmentService, DiagnosisService, PrescriptionService, UtilityService;
+
+  // Initialize API services
+  import('./frontend/js/api/services.js').then(module => {
+    PatientService = module.PatientService;
+    AppointmentService = module.AppointmentService;
+    DiagnosisService = module.DiagnosisService;
+    PrescriptionService = module.PrescriptionService;
+    UtilityService = module.UtilityService;
+
+    // Load initial data
+    loadDashboardData();
+  });
 
   function uid(prefix){ return prefix+'-'+Math.floor(Date.now()+Math.random()*1000); }
-  function fmtDate(d){ return new Date(d).toLocaleString(); }
+  function fmtDate(d){ return UtilityService ? UtilityService.formatDateTime(d) : new Date(d).toLocaleString(); }
+
+  // Load dashboard data from API
+  async function loadDashboardData() {
+    try {
+      UtilityService.showNotification('Loading dashboard data...', 'info', 2000);
+
+      // Load patients, appointments, diagnoses, and prescriptions
+      const [patientsRes, appointmentsRes, diagnosesRes, prescriptionsRes] = await Promise.all([
+        PatientService.getPatients({ limit: 50 }),
+        AppointmentService.getAppointments({ limit: 50 }),
+        DiagnosisService.getDiagnoses({ limit: 50 }),
+        PrescriptionService.getPrescriptions({ limit: 50 })
+      ]);
+
+      patients = patientsRes.data || [];
+      appointments = appointmentsRes.data || [];
+      diagnoses = diagnosesRes.data || [];
+      prescriptions = prescriptionsRes.data || [];
+
+      // Refresh current view
+      const currentView = document.querySelector('.bg-blue-100')?.textContent?.toLowerCase() || 'dashboard';
+      render(currentView);
+
+    } catch (error) {
+      console.error('Error loading dashboard data:', error);
+      UtilityService.showNotification('Error loading data. Please refresh the page.', 'error');
+    }
+  }
 
   // -------------------------
   // Dashboard
   // -------------------------
   function renderDashboard(){
+    const todayAppointments = appointments.filter(apt => {
+      const today = new Date().toISOString().split('T')[0];
+      const aptDate = new Date(apt.appointmentDate).toISOString().split('T')[0];
+      return aptDate === today;
+    });
+
+    const pendingPrescriptions = prescriptions.filter(p => p.status === 'pending');
+    const recentDiagnoses = diagnoses.slice(0, 5);
+
     document.getElementById('mainContent').innerHTML=`
-      <h2 class="text-2xl font-bold mb-4">Doctor Dashboard</h2>
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div class="bg-white p-4 rounded shadow">Patients: <strong>${patients.length}</strong></div>
-        <div class="bg-white p-4 rounded shadow">Diagnoses: <strong>${diagnoses.length}</strong></div>
-        <div class="bg-white p-4 rounded shadow">Prescriptions: <strong>${prescriptions.length}</strong></div>
+      <h2 class="text-2xl font-bold mb-6">Doctor Dashboard</h2>
+
+      <!-- Stats Cards -->
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <div class="bg-blue-50 p-4 rounded-lg border border-blue-200">
+          <div class="text-2xl font-bold text-blue-600">${patients.length}</div>
+          <div class="text-sm text-blue-800">Total Patients</div>
+        </div>
+        <div class="bg-green-50 p-4 rounded-lg border border-green-200">
+          <div class="text-2xl font-bold text-green-600">${todayAppointments.length}</div>
+          <div class="text-sm text-green-800">Today's Appointments</div>
+        </div>
+        <div class="bg-purple-50 p-4 rounded-lg border border-purple-200">
+          <div class="text-2xl font-bold text-purple-600">${diagnoses.length}</div>
+          <div class="text-sm text-purple-800">Total Diagnoses</div>
+        </div>
+        <div class="bg-orange-50 p-4 rounded-lg border border-orange-200">
+          <div class="text-2xl font-bold text-orange-600">${pendingPrescriptions.length}</div>
+          <div class="text-sm text-orange-800">Pending Prescriptions</div>
+        </div>
+      </div>
+
+      <!-- Today's Appointments -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="bg-white p-4 rounded-lg shadow">
+          <h3 class="text-lg font-semibold mb-3">Today's Appointments</h3>
+          <div class="space-y-2">
+            ${todayAppointments.length > 0 ? todayAppointments.map(apt => `
+              <div class="p-3 bg-gray-50 rounded border-l-4 border-blue-500">
+                <div class="font-medium">${apt.patient?.name || 'Unknown Patient'}</div>
+                <div class="text-sm text-gray-600">${fmtDate(apt.appointmentDate)} • ${apt.reason}</div>
+                <span class="status-badge ${apt.status}">${apt.status}</span>
+              </div>
+            `).join('') : '<p class="text-gray-500 italic">No appointments today</p>'}
+          </div>
+        </div>
+
+        <div class="bg-white p-4 rounded-lg shadow">
+          <h3 class="text-lg font-semibold mb-3">Recent Diagnoses</h3>
+          <div class="space-y-2">
+            ${recentDiagnoses.length > 0 ? recentDiagnoses.map(diag => `
+              <div class="p-3 bg-gray-50 rounded">
+                <div class="font-medium">${diag.patient?.name || 'Unknown Patient'}</div>
+                <div class="text-sm text-gray-600">${diag.diagnosis?.primary || 'No diagnosis'}</div>
+                <div class="text-xs text-gray-500">${fmtDate(diag.createdAt)}</div>
+              </div>
+            `).join('') : '<p class="text-gray-500 italic">No recent diagnoses</p>'}
+          </div>
+        </div>
       </div>
     `;
   }
@@ -83,19 +199,130 @@
   // -------------------------
   function renderPatients(){
     document.getElementById('mainContent').innerHTML=`
-      <h2 class="text-2xl font-bold mb-4">My Patients</h2>
-      <div class="space-y-3">
-        ${patients.map(p=>`
-          <div class="p-3 border rounded flex justify-between">
-            <div>
-              <div class="font-semibold">${p.name}</div>
-              <div class="text-sm text-gray-500">Condition: ${p.condition} • Room ${p.room}</div>
+      <div class="flex justify-between items-center mb-6">
+        <h2 class="text-2xl font-bold">My Patients</h2>
+        <button onclick="refreshPatients()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded">
+          Refresh
+        </button>
+      </div>
+
+      <!-- Search Bar -->
+      <div class="mb-4">
+        <div class="search-container">
+          <input type="text" id="patientSearch" class="search-input" placeholder="Search patients by name, ID, or condition...">
+          <div class="search-icon">🔍</div>
+        </div>
+      </div>
+
+      <!-- Patients List -->
+      <div class="space-y-3" id="patientsList">
+        ${patients.length > 0 ? patients.map(p=>`
+          <div class="p-4 border rounded-lg hover:shadow-md transition-shadow">
+            <div class="flex justify-between items-start">
+              <div class="flex-1">
+                <div class="flex items-center gap-3 mb-2">
+                  <div class="font-semibold text-lg">${p.firstName} ${p.lastName}</div>
+                  <span class="pill">ID: ${p.patientId || p._id}</span>
+                  <span class="pill">Age: ${UtilityService ? UtilityService.calculateAge(p.dateOfBirth) : 'N/A'}</span>
+                </div>
+                <div class="text-sm text-gray-600 mb-2">
+                  <div>📧 ${p.email || 'No email'} • 📞 ${p.phone || 'No phone'}</div>
+                  <div>🏠 ${p.address ? `${p.address.street}, ${p.address.city}` : 'No address'}</div>
+                </div>
+                <div class="text-sm text-gray-500">
+                  <strong>Medical History:</strong>
+                  ${p.medicalHistory?.chronicConditions?.length > 0 ? p.medicalHistory.chronicConditions.join(', ') : 'None'}
+                  ${p.medicalHistory?.allergies?.length > 0 ? ` • Allergies: ${p.medicalHistory.allergies.join(', ')}` : ''}
+                </div>
+              </div>
+              <div class="flex gap-2">
+                <button class="px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded text-sm" onclick="viewPatientHistory('${p._id}')">
+                  History
+                </button>
+                <button class="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm" onclick="openDiagnoseForm('${p._id}')">
+                  Diagnose
+                </button>
+              </div>
             </div>
-            <button class="px-3 py-1 bg-blue-600 text-white rounded" onclick="openDiagnoseForm('${p.id}')">Diagnose</button>
           </div>
-        `).join('')}
+        `).join('') : '<div class="text-center py-8 text-gray-500">No patients found</div>'}
       </div>
     `;
+
+    // Setup search functionality
+    setupPatientSearch();
+  }
+
+  // Setup patient search
+  function setupPatientSearch() {
+    const searchInput = document.getElementById('patientSearch');
+    if (searchInput) {
+      searchInput.addEventListener('input', UtilityService.debounce(async (e) => {
+        const query = e.target.value.trim();
+        if (query.length > 2) {
+          try {
+            const response = await PatientService.searchPatients(query);
+            const searchResults = response.data || [];
+            updatePatientsList(searchResults);
+          } catch (error) {
+            console.error('Search error:', error);
+          }
+        } else if (query.length === 0) {
+          updatePatientsList(patients);
+        }
+      }, 300));
+    }
+  }
+
+  // Update patients list display
+  function updatePatientsList(patientList) {
+    const patientsListEl = document.getElementById('patientsList');
+    if (patientsListEl) {
+      patientsListEl.innerHTML = patientList.length > 0 ? patientList.map(p=>`
+        <div class="p-4 border rounded-lg hover:shadow-md transition-shadow">
+          <div class="flex justify-between items-start">
+            <div class="flex-1">
+              <div class="flex items-center gap-3 mb-2">
+                <div class="font-semibold text-lg">${p.firstName} ${p.lastName}</div>
+                <span class="pill">ID: ${p.patientId || p._id}</span>
+                <span class="pill">Age: ${UtilityService ? UtilityService.calculateAge(p.dateOfBirth) : 'N/A'}</span>
+              </div>
+              <div class="text-sm text-gray-600 mb-2">
+                <div>📧 ${p.email || 'No email'} • 📞 ${p.phone || 'No phone'}</div>
+                <div>🏠 ${p.address ? `${p.address.street}, ${p.address.city}` : 'No address'}</div>
+              </div>
+              <div class="text-sm text-gray-500">
+                <strong>Medical History:</strong>
+                ${p.medicalHistory?.chronicConditions?.length > 0 ? p.medicalHistory.chronicConditions.join(', ') : 'None'}
+                ${p.medicalHistory?.allergies?.length > 0 ? ` • Allergies: ${p.medicalHistory.allergies.join(', ')}` : ''}
+              </div>
+            </div>
+            <div class="flex gap-2">
+              <button class="px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded text-sm" onclick="viewPatientHistory('${p._id}')">
+                History
+              </button>
+              <button class="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm" onclick="openDiagnoseForm('${p._id}')">
+                Diagnose
+              </button>
+            </div>
+          </div>
+        </div>
+      `).join('') : '<div class="text-center py-8 text-gray-500">No patients found</div>';
+    }
+  }
+
+  // Refresh patients data
+  async function refreshPatients() {
+    try {
+      UtilityService.showNotification('Refreshing patients...', 'info', 2000);
+      const response = await PatientService.getPatients({ limit: 100 });
+      patients = response.data || [];
+      renderPatients();
+      UtilityService.showNotification('Patients refreshed successfully', 'success');
+    } catch (error) {
+      console.error('Error refreshing patients:', error);
+      UtilityService.showNotification('Error refreshing patients', 'error');
+    }
   }
 
   // -------------------------

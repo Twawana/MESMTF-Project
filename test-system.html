@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MESMTF System Test</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .test-pass { background-color: #dcfce7; color: #166534; }
+        .test-fail { background-color: #fee2e2; color: #991b1b; }
+        .test-pending { background-color: #fef3c7; color: #92400e; }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen p-8">
+    <div class="max-w-4xl mx-auto">
+        <div class="bg-white rounded-lg shadow-lg p-6">
+            <h1 class="text-3xl font-bold mb-6 text-center">🧪 MESMTF System Test Suite</h1>
+            
+            <div class="mb-6">
+                <button id="runAllTests" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-semibold">
+                    Run All Tests
+                </button>
+                <button id="clearResults" class="bg-gray-600 hover:bg-gray-700 text-white px-6 py-3 rounded-lg font-semibold ml-4">
+                    Clear Results
+                </button>
+            </div>
+            
+            <div id="testResults" class="space-y-4">
+                <!-- Test results will be displayed here -->
+            </div>
+            
+            <div class="mt-8 p-4 bg-blue-50 rounded-lg">
+                <h3 class="font-semibold text-blue-800 mb-2">Test Instructions:</h3>
+                <ol class="list-decimal list-inside text-blue-700 space-y-1">
+                    <li>Make sure the backend server is running on http://localhost:5000</li>
+                    <li>Ensure MongoDB is running and seeded with initial data</li>
+                    <li>Click "Run All Tests" to test all system components</li>
+                    <li>Check individual test results below</li>
+                    <li>Green = Pass, Red = Fail, Yellow = Pending</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+
+    <!-- API Integration Scripts -->
+    <script type="module" src="frontend/js/api/config.js"></script>
+    <script type="module" src="frontend/js/api/httpClient.js"></script>
+    <script type="module" src="frontend/js/api/auth.js"></script>
+    <script type="module" src="frontend/js/api/services.js"></script>
+    <link rel="stylesheet" href="frontend/css/api-components.css">
+
+    <script type="module">
+        import { httpClient } from './frontend/js/api/httpClient.js';
+        import { AuthService } from './frontend/js/api/auth.js';
+        import { PatientService, AppointmentService, DiagnosisService, PrescriptionService, AdminService, UserService } from './frontend/js/api/services.js';
+
+        class SystemTester {
+            constructor() {
+                this.tests = [];
+                this.results = [];
+                this.setupTests();
+                this.setupEventListeners();
+            }
+
+            setupEventListeners() {
+                document.getElementById('runAllTests').addEventListener('click', () => this.runAllTests());
+                document.getElementById('clearResults').addEventListener('click', () => this.clearResults());
+            }
+
+            setupTests() {
+                this.tests = [
+                    { name: 'Backend Server Health Check', test: () => this.testServerHealth() },
+                    { name: 'Database Connection', test: () => this.testDatabaseConnection() },
+                    { name: 'Authentication System', test: () => this.testAuthentication() },
+                    { name: 'Patient Management API', test: () => this.testPatientAPI() },
+                    { name: 'Appointment System API', test: () => this.testAppointmentAPI() },
+                    { name: 'Prescription Management API', test: () => this.testPrescriptionAPI() },
+                    { name: 'Diagnosis System API', test: () => this.testDiagnosisAPI() },
+                    { name: 'Admin Dashboard API', test: () => this.testAdminAPI() },
+                    { name: 'User Management API', test: () => this.testUserAPI() },
+                    { name: 'Expert System Integration', test: () => this.testExpertSystem() }
+                ];
+            }
+
+            async runAllTests() {
+                this.clearResults();
+                this.updateUI('Starting system tests...', 'info');
+
+                for (let i = 0; i < this.tests.length; i++) {
+                    const test = this.tests[i];
+                    this.updateTestStatus(i, 'pending', 'Running...');
+                    
+                    try {
+                        const result = await test.test();
+                        this.updateTestStatus(i, result.success ? 'pass' : 'fail', result.message);
+                        this.results.push({ name: test.name, success: result.success, message: result.message });
+                    } catch (error) {
+                        this.updateTestStatus(i, 'fail', `Error: ${error.message}`);
+                        this.results.push({ name: test.name, success: false, message: error.message });
+                    }
+                    
+                    // Small delay between tests
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                }
+
+                this.showSummary();
+            }
+
+            async testServerHealth() {
+                try {
+                    const response = await fetch('http://localhost:5000/health');
+                    if (response.ok) {
+                        return { success: true, message: 'Server is healthy and responding' };
+                    } else {
+                        return { success: false, message: `Server returned status: ${response.status}` };
+                    }
+                } catch (error) {
+                    return { success: false, message: 'Cannot connect to backend server' };
+                }
+            }
+
+            async testDatabaseConnection() {
+                try {
+                    const response = await httpClient.get('/admin/system-health');
+                    if (response.success && response.data.database) {
+                        return { success: true, message: 'Database connection is healthy' };
+                    } else {
+                        return { success: false, message: 'Database connection failed' };
+                    }
+                } catch (error) {
+                    return { success: false, message: 'Cannot test database connection' };
+                }
+            }
+
+            async testAuthentication() {
+                try {
+                    // Test login with default admin credentials
+                    const loginResult = await AuthService.login({
+                        username: 'admin',
+                        password: 'admin123'
+                    });
+                    
+                    if (loginResult.success) {
+                        // Test getting current user
+                        const user = await AuthService.getCurrentUser();
+                        if (user && user.role === 'admin') {
+                            return { success: true, message: 'Authentication system working correctly' };
+                        } else {
+                            return { success: false, message: 'Failed to get current user data' };
+                        }
+                    } else {
+                        return { success: false, message: 'Login failed with default credentials' };
+                    }
+                } catch (error) {
+                    return { success: false, message: `Authentication error: ${error.message}` };
+                }
+            }
+
+            async testPatientAPI() {
+                try {
+                    const patients = await PatientService.getPatients({ limit: 5 });
+                    if (patients.success && Array.isArray(patients.data)) {
+                        return { success: true, message: `Patient API working - ${patients.data.length} patients found` };
+                    } else {
+                        return { success: false, message: 'Patient API returned invalid data' };
+                    }
+                } catch (error) {
+                    return { success: false, message: `Patient API error: ${error.message}` };
+                }
+            }
+
+            async testAppointmentAPI() {
+                try {
+                    const appointments = await AppointmentService.getAppointments({ limit: 5 });
+                    if (appointments.success && Array.isArray(appointments.data)) {
+                        return { success: true, message: `Appointment API working - ${appointments.data.length} appointments found` };
+                    } else {
+                        return { success: false, message: 'Appointment API returned invalid data' };
+                    }
+                } catch (error) {
+                    return { success: false, message: `Appointment API error: ${error.message}` };
+                }
+            }
+
+            async testPrescriptionAPI() {
+                try {
+                    const prescriptions = await PrescriptionService.getPrescriptions({ limit: 5 });
+                    if (prescriptions.success && Array.isArray(prescriptions.data)) {
+                        return { success: true, message: `Prescription API working - ${prescriptions.data.length} prescriptions found` };
+                    } else {
+                        return { success: false, message: 'Prescription API returned invalid data' };
+                    }
+                } catch (error) {
+                    return { success: false, message: `Prescription API error: ${error.message}` };
+                }
+            }
+
+            async testDiagnosisAPI() {
+                try {
+                    const diagnoses = await DiagnosisService.getDiagnoses({ limit: 5 });
+                    if (diagnoses.success && Array.isArray(diagnoses.data)) {
+                        return { success: true, message: `Diagnosis API working - ${diagnoses.data.length} diagnoses found` };
+                    } else {
+                        return { success: false, message: 'Diagnosis API returned invalid data' };
+                    }
+                } catch (error) {
+                    return { success: false, message: `Diagnosis API error: ${error.message}` };
+                }
+            }
+
+            async testAdminAPI() {
+                try {
+                    const dashboard = await AdminService.getDashboardStats();
+                    if (dashboard.success && dashboard.data) {
+                        return { success: true, message: 'Admin API working - dashboard data retrieved' };
+                    } else {
+                        return { success: false, message: 'Admin API returned invalid data' };
+                    }
+                } catch (error) {
+                    return { success: false, message: `Admin API error: ${error.message}` };
+                }
+            }
+
+            async testUserAPI() {
+                try {
+                    const users = await UserService.getUsers({ limit: 5 });
+                    if (users.success && Array.isArray(users.data)) {
+                        return { success: true, message: `User API working - ${users.data.length} users found` };
+                    } else {
+                        return { success: false, message: 'User API returned invalid data' };
+                    }
+                } catch (error) {
+                    return { success: false, message: `User API error: ${error.message}` };
+                }
+            }
+
+            async testExpertSystem() {
+                try {
+                    const assessment = await DiagnosisService.getExpertSystemAssessment([
+                        { symptom: 'fever', severity: 'high', duration: '3 days' },
+                        { symptom: 'headache', severity: 'moderate', duration: '2 days' }
+                    ]);
+                    
+                    if (assessment.success && assessment.data) {
+                        return { success: true, message: 'Expert system working - assessment generated' };
+                    } else {
+                        return { success: false, message: 'Expert system returned invalid data' };
+                    }
+                } catch (error) {
+                    return { success: false, message: `Expert system error: ${error.message}` };
+                }
+            }
+
+            updateTestStatus(index, status, message) {
+                const resultsDiv = document.getElementById('testResults');
+                let testDiv = document.getElementById(`test-${index}`);
+                
+                if (!testDiv) {
+                    testDiv = document.createElement('div');
+                    testDiv.id = `test-${index}`;
+                    testDiv.className = 'p-4 rounded-lg border';
+                    resultsDiv.appendChild(testDiv);
+                }
+                
+                const statusClass = status === 'pass' ? 'test-pass' : status === 'fail' ? 'test-fail' : 'test-pending';
+                const statusIcon = status === 'pass' ? '✅' : status === 'fail' ? '❌' : '⏳';
+                
+                testDiv.className = `p-4 rounded-lg border ${statusClass}`;
+                testDiv.innerHTML = `
+                    <div class="flex items-center justify-between">
+                        <div class="font-semibold">${statusIcon} ${this.tests[index].name}</div>
+                        <div class="text-sm">${message}</div>
+                    </div>
+                `;
+            }
+
+            showSummary() {
+                const passed = this.results.filter(r => r.success).length;
+                const total = this.results.length;
+                const percentage = Math.round((passed / total) * 100);
+                
+                const summaryDiv = document.createElement('div');
+                summaryDiv.className = `mt-6 p-4 rounded-lg ${percentage === 100 ? 'bg-green-100 text-green-800' : percentage >= 70 ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'}`;
+                summaryDiv.innerHTML = `
+                    <h3 class="font-bold text-lg mb-2">Test Summary</h3>
+                    <p>Passed: ${passed}/${total} tests (${percentage}%)</p>
+                    <p class="mt-2">${percentage === 100 ? '🎉 All tests passed! System is ready.' : percentage >= 70 ? '⚠️ Most tests passed. Check failed tests.' : '🚨 Multiple tests failed. System needs attention.'}</p>
+                `;
+                
+                document.getElementById('testResults').appendChild(summaryDiv);
+            }
+
+            clearResults() {
+                document.getElementById('testResults').innerHTML = '';
+                this.results = [];
+            }
+
+            updateUI(message, type) {
+                console.log(`[${type.toUpperCase()}] ${message}`);
+            }
+        }
+
+        // Initialize the tester
+        const tester = new SystemTester();
+    </script>
+</body>
+</html>

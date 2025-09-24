@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>MESMTF — Receptionist Portal (Runnable)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .fade-in { animation: fadeIn .33s ease-in; }
+    @keyframes fadeIn { from { opacity:0; transform:translateY(6px);} to { opacity:1; transform:translateY(0);} }
+    .pill { display:inline-block; padding:.25rem .6rem; border-radius:999px; background:#eef2ff; color:#312e81; font-size:.8rem; }
+    .small { font-size:.85rem; }
+  </style>
+</head>
+<body class="bg-gray-100 min-h-screen font-sans">
+
+  <!-- Top nav -->
+  <header class="bg-white shadow">
+    <div class="max-w-7xl mx-auto flex items-center justify-between p-4">
+      <div class="flex items-center space-x-4">
+        <div class="rounded-full bg-blue-600 w-12 h-12 flex items-center justify-center text-white font-bold">M</div>
+        <div>
+          <div class="text-lg font-bold text-gray-800">MESMTF Receptionist Portal</div>
+          <div class="text-sm text-gray-500">Medical Expert System — Malaria & Typhoid</div>
+        </div>
+      </div>
+      <div class="flex items-center space-x-4">
+        <div class="text-sm text-gray-700">Reception • <span class="text-xs text-gray-500">Logged in</span></div>
+        <button id="dashboardBtn" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded mr-2">Dashboard</button>
+        <button id="logoutBtn" class="bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded">Logout</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="max-w-7xl mx-auto mt-6 flex gap-6 px-4">
+    <!-- Sidebar -->
+    <aside class="w-72 bg-white rounded-lg shadow p-4 sticky top-6 h-[calc(100vh-96px)]">
+      <nav class="space-y-1">
+        <button id="nav-dashboard" class="w-full text-left px-3 py-2 rounded hover:bg-gray-50" onclick="render('dashboard')">🏠 Dashboard</button>
+        <button id="nav-patients" class="w-full text-left px-3 py-2 rounded hover:bg-gray-50" onclick="render('patients')">👥 Manage Patients</button>
+        <button id="nav-appointments" class="w-full text-left px-3 py-2 rounded hover:bg-gray-50" onclick="render('appointments')">📅 Manage Appointments</button>
+        <button id="nav-checkin" class="w-full text-left px-3 py-2 rounded hover:bg-gray-50" onclick="render('checkin')">✅ Check-in / Check-out</button>
+        <button id="nav-reports" class="w-full text-left px-3 py-2 rounded hover:bg-gray-50" onclick="render('reports')">📊 Reports</button>
+      </nav>
+
+      <div class="mt-6 text-xs text-gray-500">
+        <div class="mb-1">Quick actions</div>
+        <button class="mt-1 w-full text-left px-3 py-2 rounded bg-blue-50 text-blue-700" onclick="render('patients')">Register Patient</button>
+        <button class="mt-1 w-full text-left px-3 py-2 rounded bg-green-50 text-green-700" onclick="render('appointments')">New Appointment</button>
+      </div>
+    </aside>
+
+    <!-- Main content -->
+    <main id="mainContent" class="flex-1 min-h-[70vh] bg-white rounded-lg shadow p-6 fade-in">
+      <!-- dynamic content -->
+    </main>
+  </div>
+
+  <script>
+  // -------------------------
+  // Data & localStorage utils
+  // -------------------------
+  const storage = {
+    get(k, fallback) {
+      const raw = localStorage.getItem(k);
+      return raw ? JSON.parse(raw) : fallback;
+    },
+    set(k, v){ localStorage.setItem(k, JSON.stringify(v)); }
+  };
+
+  // Sample data seeds (only if not present)
+  let patients = storage.get('re_patients', null);
+  if(!patients) {
+    patients = [
+      { id:'p1', firstName:'John', lastName:'Doe', name:'John Doe', dob:'1995-05-12', gender:'Male', phone:'081234567', address:'123 Main St', notes:'' },
+      { id:'p2', firstName:'Jane', lastName:'Smith', name:'Jane Smith', dob:'1989-08-03', gender:'Female', phone:'082345678', address:'45 Elm Ave', notes:'' },
+    ];
+    storage.set('re_patients', patients);
+  }
+
+  let appointments = storage.get('re_appointments', null);
+  if(!appointments) {
+    appointments = [
+      { id:'a1', patientId:'p1', patientName:'John Doe', doctor:'Dr. John Smith', date:'2025-09-25T09:00', status:'requested', reason:'Fever & headache' },
+      { id:'a2', patientId:'p2', patientName:'Jane Smith', doctor:'Dr. Amena K.', date:'2025-09-25T10:30', status:'confirmed', reason:'Follow-up' }
+    ];
+    storage.set('re_appointments', appointments);
+  }
+
+  // helper to persist
+  function saveAll(){ storage.set('re_patients', patients); storage.set('re_appointments', appointments); }
+
+  // -------------------------
+  // Utilities
+  // -------------------------
+  function el(html){ const d=document.createElement('div'); d.innerHTML=html.trim(); return d.firstChild; }
+  function fmtDate(d){ if(!d) return '—'; const dt = new Date(d); return dt.toLocaleString(); }
+  function uid(prefix='id'){ return prefix + '-' + Math.floor(Date.now() + Math.random()*1000); }
+
+  // -------------------------
+  // Render functions
+  // -------------------------
+  function renderDashboard(){
+    // compute stats
+    const today = new Date().toISOString().split('T')[0];
+    const todayCount = appointments.filter(a => a.date && a.date.startsWith(today)).length;
+    const pendingCount = appointments.filter(a => a.status === 'requested').length;
+    const totalPatients = patients.length;
+
+    document.getElementById('mainContent').innerHTML = `
+      <div>
+        <h2 class="text-2xl font-bold mb-4">Reception Dashboard</h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div class="bg-white p-4 rounded shadow">
+            <h3 class="text-sm text-gray-500">Patients Registered</h3>
+            <div class="text-lg font-semibold mt-2">${totalPatients}</div>
+          </div>
+          <div class="bg-white p-4 rounded shadow">
+            <h3 class="text-sm text-gray-500">Appointments Today</h3>
+            <div class="text-lg font-semibold mt-2">${todayCount}</div>
+          </div>
+          <div class="bg-white p-4 rounded shadow">
+            <h3 class="text-sm text-gray-500">Pending Approvals</h3>
+            <div class="text-lg font-semibold mt-2">${pendingCount}</div>
+          </div>
+        </div>
+
+        <div class="mt-6 bg-white p-4 rounded shadow">
+          <h3 class="font-semibold mb-2">Upcoming Appointments</h3>
+          <div class="space-y-2" id="upcomingList">
+            ${appointments.slice(0,6).map(a=>`
+              <div class="p-3 rounded border flex justify-between items-start">
+                <div>
+                  <div class="font-semibold">${a.patientName} • ${a.doctor}</div>
+                  <div class="text-sm text-gray-500">${fmtDate(a.date)}</div>
+                  <div class="text-xs mt-1">Status: <span class="pill">${a.status}</span></div>
+                </div>
+                <div class="flex flex-col gap-2">
+                  ${a.status==='requested' ? `<button class="px-2 py-1 bg-green-600 text-white rounded" onclick="updateAppt('${a.id}','confirmed')">Approve</button>` : ''}
+                  <button class="px-2 py-1 bg-yellow-500 text-white rounded" onclick="openReschedule('${a.id}')">Reschedule</button>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  // -------------------------
+  // Patients Management
+  // -------------------------
+  function renderPatients(){
+    document.getElementById('mainContent').innerHTML = `
+      <div>
+        <h2 class="text-2xl font-bold mb-4">Manage Patients</h2>
+
+        <div class="grid md:grid-cols-2 gap-4">
+          <div class="bg-white p-4 rounded shadow">
+            <h3 class="font-semibold mb-2">Registered Patients</h3>
+            <div id="patientsList" class="space-y-2 max-h-[52vh] overflow-y-auto"></div>
+          </div>
+
+          <div class="bg-white p-4 rounded shadow">
+            <h3 class="font-semibold mb-2">Register New Patient</h3>
+            <form id="addPatientForm" class="space-y-2">
+              <div class="grid grid-cols-2 gap-2">
+                <input id="pFirst" placeholder="First Name" class="p-2 border rounded" required />
+                <input id="pLast" placeholder="Last Name" class="p-2 border rounded" required />
+              </div>
+              <div class="grid grid-cols-2 gap-2">
+                <input id="pDob" type="date" class="p-2 border rounded" />
+                <select id="pGender" class="p-2 border rounded">
+                  <option value="">Gender</option><option>Male</option><option>Female</option><option>Other</option>
+                </select>
+              </div>
+              <input id="pPhone" placeholder="Phone" class="p-2 border rounded" />
+              <input id="pAddress" placeholder="Address" class="p-2 border rounded" />
+              <textarea id="pNotes" placeholder="Notes" class="p-2 border rounded"></textarea>
+              <div class="flex gap-2">
+                <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded">Add Patient</button>
+                <button type="button" class="px-4 py-2 bg-gray-200 rounded" onclick="clearPatientForm()">Clear</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    `;
+    refreshPatientsList();
+
+    document.getElementById('addPatientForm').onsubmit = (e)=>{
+      e.preventDefault();
+      const first = document.getElementById('pFirst').value.trim();
+      const last = document.getElementById('pLast').value.trim();
+      const dob = document.getElementById('pDob').value;
+      const gender = document.getElementById('pGender').value;
+      const phone = document.getElementById('pPhone').value.trim();
+      const address = document.getElementById('pAddress').value.trim();
+      const notes = document.getElementById('pNotes').value.trim();
+
+      if(!first || !last) return alert('Enter name');
+      const newP = { id: uid('p'), firstName:first, lastName:last, name:first+' '+last, dob, gender, phone, address, notes };
+      patients.unshift(newP);
+      saveAll();
+      alert('Patient registered');
+      render('patients');
+    };
+  }
+
+  function refreshPatientsList(){
+    const listDiv = document.getElementById('patientsList');
+    listDiv.innerHTML = patients.map(p => `
+      <div class="p-2 rounded border flex justify-between items-start">
+        <div>
+          <div class="font-semibold">${p.name}</div>
+          <div class="text-xs text-gray-500">${p.gender || '—'} • ${p.phone || '—'}</div>
+          <div class="text-xs text-gray-400">${p.address || ''}</div>
+        </div>
+        <div class="flex flex-col gap-1">
+          <button class="px-2 py-1 bg-blue-500 text-white rounded text-xs" onclick="editPatient('${p.id}')">Edit</button>
+          <button class="px-2 py-1 bg-red-500 text-white rounded text-xs" onclick="deletePatient('${p.id}')">Delete</button>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  function clearPatientForm(){
+    ['pFirst','pLast','pDob','pGender','pPhone','pAddress','pNotes'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+  }
+
+  function deletePatient(id){
+    if(!confirm('Delete patient?')) return;
+    patients = patients.filter(p => p.id !== id);
+    saveAll();
+    render('patients');
+  }
+
+  function editPatient(id){
+    const p = patients.find(x=>x.id===id);
+    if(!p) return alert('Not found');
+    // show edit inline form in main content
+    document.getElementById('mainContent').innerHTML = `
+      <div>
+        <h2 class="text-2xl font-bold mb-4">Edit Patient</h2>
+        <div class="bg-white p-4 rounded shadow">
+          <form id="editPatientForm" class="space-y-2">
+            <div class="grid grid-cols-2 gap-2">
+              <input id="eFirst" class="p-2 border rounded" value="${p.firstName}" />
+              <input id="eLast" class="p-2 border rounded" value="${p.lastName}" />
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+              <input id="eDob" type="date" class="p-2 border rounded" value="${p.dob||''}" />
+              <select id="eGender" class="p-2 border rounded">
+                <option ${p.gender===''?'selected':''} value="">Gender</option>
+                <option ${p.gender==='Male'?'selected':''}>Male</option>
+                <option ${p.gender==='Female'?'selected':''}>Female</option>
+                <option ${p.gender==='Other'?'selected':''}>Other</option>
+              </select>
+            </div>
+            <input id="ePhone" class="p-2 border rounded" value="${p.phone||''}" />
+            <input id="eAddress" class="p-2 border rounded" value="${p.address||''}" />
+            <textarea id="eNotes" class="p-2 border rounded">${p.notes||''}</textarea>
+            <div class="flex gap-2">
+              <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded">Save</button>
+              <button type="button" class="px-4 py-2 bg-gray-200 rounded" onclick="render('patients')">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    `;
+    document.getElementById('editPatientForm').onsubmit = (e)=>{
+      e.preventDefault();
+      p.firstName = document.getElementById('eFirst').value.trim();
+      p.lastName = document.getElementById('eLast').value.trim();
+      p.name = p.firstName + ' ' + p.lastName;
+      p.dob = document.getElementById('eDob').value;
+      p.gender = document.getElementById('eGender').value;
+      p.phone = document.getElementById('ePhone').value.trim();
+      p.address = document.getElementById('eAddress').value.trim();
+      p.notes = document.getElementById('eNotes').value.trim();
+      saveAll();
+      alert('Saved');
+      render('patients');
+    };
+  }
+
+  // -------------------------
+  // Appointments Management
+  // -------------------------
+  const sampleDoctors = [
+    { id:'dr1', name:'Dr. John Smith', specialization:'Infectious Diseases' },
+    { id:'dr2', name:'Dr. Amena K.', specialization:'General Practitioner' }
+  ];
+
+  function renderAppointments(){
+    document.getElementById('mainContent').innerHTML = `
+      <div>
+        <h2 class="text-2xl font-bold mb-4">Manage Appointments</h2>
+        <div class="grid md:grid-cols-2 gap-4">
+          <div class="bg-white p-4 rounded shadow">
+            <h3 class="font-semibold mb-2">Create Appointment</h3>
+            <form id="createApptForm" class="space-y-2">
+              <label class="block small">Patient</label>
+              <select id="apptPatient" class="w-full p-2 border rounded">
+                <option value="">-- Select Patient --</option>
+                ${patients.map(p=>`<option value="${p.id}">${p.name} (${p.phone||'—'})</option>`).join('')}
+              </select>
+              <label class="block small">Doctor</label>
+              <select id="apptDoctor" class="w-full p-2 border rounded">
+                <option value="">-- Select Doctor --</option>
+                ${sampleDoctors.map(d=>`<option value="${d.id}">${d.name} — ${d.specialization}</option>`).join('')}
+              </select>
+              <label class="block small">Date & Time</label>
+              <input id="apptDate" type="datetime-local" class="w-full p-2 border rounded" />
+              <label class="block small">Reason</label>
+              <textarea id="apptReason" class="w-full p-2 border rounded"></textarea>
+              <div class="flex gap-2">
+                <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded">Create</button>
+                <button type="button" class="px-4 py-2 bg-gray-200 rounded" onclick="render('appointments')">Reset</button>
+              </div>
+            </form>
+          </div>
+
+          <div class="bg-white p-4 rounded shadow">
+            <h3 class="font-semibold mb-2">All Appointments</h3>
+            <div id="allAppts" class="space-y-2 max-h-[56vh] overflow-y-auto"></div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    refreshAppointmentsList();
+
+    document.getElementById('createApptForm').onsubmit = (e)=>{
+      e.preventDefault();
+      const pid = document.getElementById('apptPatient').value;
+      const did = document.getElementById('apptDoctor').value;
+      const dt = document.getElementById('apptDate').value;
+      const reason = document.getElementById('apptReason').value.trim();
+      if(!pid || !did || !dt) return alert('Select patient, doctor and date/time');
+      const pat = patients.find(x=>x.id===pid);
+      const doc = sampleDoctors.find(x=>x.id===did);
+      const appt = { id: uid('a'), patientId: pid, patientName: pat.name, doctor: doc.name, date: dt, status: 'requested', reason };
+      appointments.unshift(appt);
+      saveAll();
+      alert('Appointment created (requested).');
+      render('appointments');
+    };
+  }
+
+  function refreshAppointmentsList(){
+    const allAppts = document.getElementById('allAppts');
+    if(!allAppts) return;
+    if(!appointments.length) { allAppts.innerHTML = `<div class="text-gray-500">No appointments</div>`; return; }
+    allAppts.innerHTML = appointments.map(a => `
+      <div class="p-3 rounded border flex justify-between items-start">
+        <div>
+          <div class="font-semibold">${a.patientName} • ${a.doctor}</div>
+          <div class="text-xs text-gray-500">${fmtDate(a.date)}</div>
+          <div class="text-xs mt-1">Reason: ${a.reason || '—'}</div>
+          <div class="text-xs mt-1">Status: <span class="pill">${a.status}</span></div>
+        </div>
+        <div class="flex flex-col gap-2">
+          ${a.status==='requested' ? `<button class="px-2 py-1 bg-green-600 text-white rounded" onclick="updateAppt('${a.id}','confirmed')">Approve</button>` : ''}
+          <button class="px-2 py-1 bg-yellow-500 text-white rounded" onclick="openReschedule('${a.id}')">Reschedule</button>
+          ${a.status!=='cancelled' ? `<button class="px-2 py-1 bg-red-500 text-white rounded" onclick="updateAppt('${a.id}','cancelled')">Cancel</button>` : ''}
+        </div>
+      </div>
+    `).join('');
+  }
+
+  function updateAppt(id, status){
+    appointments = appointments.map(a => a.id===id ? {...a, status} : a);
+    saveAll();
+    refreshAppointmentsList();
+    render('appointments');
+  }
+
+  function openReschedule(id){
+    const a = appointments.find(x=>x.id===id);
+    if(!a) return alert('Not found');
+    document.getElementById('mainContent').innerHTML = `
+      <div>
+        <h2 class="text-2xl font-bold mb-4">Reschedule Appointment</h2>
+        <div class="bg-white p-4 rounded shadow">
+          <div class="font-semibold mb-2">${a.patientName} • ${a.doctor}</div>
+          <label class="block small">New Date & Time</label>
+          <input id="newDate" type="datetime-local" class="w-full p-2 border rounded" value="${a.date || ''}" />
+          <div class="mt-3 flex gap-2">
+            <button class="px-3 py-2 bg-blue-600 text-white rounded" onclick="reschedule('${a.id}')">Save</button>
+            <button class="px-3 py-2 bg-gray-200 rounded" onclick="render('appointments')">Cancel</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+  function reschedule(id){
+    const nd = document.getElementById('newDate').value;
+    if(!nd) return alert('Select date/time');
+    appointments = appointments.map(a => a.id===id ? {...a, date: nd, status:'confirmed'} : a);
+    saveAll();
+    alert('Rescheduled.');
+    render('appointments');
+  }
+
+  // -------------------------
+  // Check-in / Check-out
+  // -------------------------
+  function renderCheckin(){
+    document.getElementById('mainContent').innerHTML = `
+      <div>
+        <h2 class="text-2xl font-bold mb-4">Check-in / Check-out</h2>
+        <div class="bg-white p-4 rounded shadow">
+          <h3 class="font-semibold mb-2">Today\'s Confirmed Appointments</h3>
+          <div id="checkList" class="space-y-2 max-h-[60vh] overflow-y-auto"></div>
+        </div>
+      </div>
+    `;
+    refreshCheckList();
+  }
+
+  function refreshCheckList(){
+    const checkList = document.getElementById('checkList');
+    const today = new Date().toISOString().split('T')[0];
+    const todays = appointments.filter(a => a.date && a.date.startsWith(today) && (a.status==='confirmed' || a.status==='checked-in' || a.status==='checked-out'));
+    if(!todays.length) { checkList.innerHTML = '<div class="text-gray-500">No confirmed appointments today.</div>'; return; }
+    checkList.innerHTML = todays.map(a => `
+      <div class="p-3 rounded border flex justify-between items-start">
+        <div>
+          <div class="font-semibold">${a.patientName}</div>
+          <div class="text-xs text-gray-500">${fmtDate(a.date)}</div>
+          <div class="text-xs mt-1">Status: <span class="pill">${a.status}</span></div>
+        </div>
+        <div class="flex flex-col gap-2">
+          ${a.status!=='checked-in' ? `<button class="px-2 py-1 bg-blue-600 text-white rounded" onclick="markCheck('${a.id}','checked-in')">Check-in</button>` : ''}
+          ${a.status==='checked-in' ? `<button class="px-2 py-1 bg-green-600 text-white rounded" onclick="markCheck('${a.id}','checked-out')">Check-out</button>` : ''}
+        </div>
+      </div>
+    `).join('');
+  }
+
+  function markCheck(id, status){
+    appointments = appointments.map(a => a.id===id ? {...a, status} : a);
+    saveAll();
+    refreshCheckList();
+  }
+
+  // -------------------------
+  // Reports
+  // -------------------------
+  function renderReports(){
+    document.getElementById('mainContent').innerHTML = `
+      <div>
+        <h2 class="text-2xl font-bold mb-4">Reports</h2>
+        <div class="bg-white p-4 rounded shadow mb-4">
+          <div class="flex gap-2 items-center">
+            <label class="small">Range:</label>
+            <select id="reportRange" class="p-2 border rounded">
+              <option value="today">Today</option>
+              <option value="week">This Week</option>
+              <option value="all">All Time</option>
+            </select>
+            <button class="px-3 py-1 bg-blue-600 text-white rounded" onclick="generateReport()">Generate</button>
+          </div>
+        </div>
+        <div id="reportOutput"></div>
+      </div>
+    `;
+    generateReport();
+  }
+
+  function generateReport(){
+    const range = document.getElementById('reportRange').value;
+    const now = new Date();
+    const appointmentsFiltered = appointments.filter(a => {
+      if(range==='all') return true;
+      if(!a.date) return false;
+      const ad = new Date(a.date);
+      if(range==='today'){
+        return ad.toDateString() === now.toDateString();
+      } else if(range==='week'){
+        const start = new Date(now); start.setDate(now.getDate() - 7);
+        return ad >= start && ad <= now;
+      }
+      return true;
+    });
+
+    const total = appointmentsFiltered.length;
+    const confirmed = appointmentsFiltered.filter(a=>a.status==='confirmed').length;
+    const requested = appointmentsFiltered.filter(a=>a.status==='requested').length;
+    const cancelled = appointmentsFiltered.filter(a=>a.status==='cancelled').length;
+    const checkedin = appointmentsFiltered.filter(a=>a.status==='checked-in').length;
+    const checkedout = appointmentsFiltered.filter(a=>a.status==='checked-out').length;
+
+    document.getElementById('reportOutput').innerHTML = `
+      <div class="bg-white p-4 rounded shadow">
+        <div>Total appointments: <strong>${total}</strong></div>
+        <div>Confirmed: <strong>${confirmed}</strong></div>
+        <div>Requested: <strong>${requested}</strong></div>
+        <div>Cancelled: <strong>${cancelled}</strong></div>
+        <div>Checked-in: <strong>${checkedin}</strong></div>
+        <div>Checked-out: <strong>${checkedout}</strong></div>
+      </div>
+    `;
+  }
+
+  // -------------------------
+  // Dispatcher
+  // -------------------------
+  function render(page){
+    switch(page){
+      case 'dashboard': renderDashboard(); break;
+      case 'patients': renderPatients(); break;
+      case 'appointments': renderAppointments(); break;
+      case 'checkin': renderCheckin(); break;
+      case 'reports': renderReports(); break;
+      default: renderDashboard();
+    }
+    highlightNav(page);
+  }
+
+  function highlightNav(page){
+    // simple highlight: remove bg from all then add
+    ['nav-dashboard','nav-patients','nav-appointments','nav-checkin','nav-reports'].forEach(id=>{
+      const el = document.getElementById(id);
+      if(!el) return;
+      el.classList.remove('bg-gray-100','font-semibold');
+    });
+    switch(page){
+      case 'dashboard': document.getElementById('nav-dashboard').classList.add('bg-gray-100','font-semibold'); break;
+      case 'patients': document.getElementById('nav-patients').classList.add('bg-gray-100','font-semibold'); break;
+      case 'appointments': document.getElementById('nav-appointments').classList.add('bg-gray-100','font-semibold'); break;
+      case 'checkin': document.getElementById('nav-checkin').classList.add('bg-gray-100','font-semibold'); break;
+      case 'reports': document.getElementById('nav-reports').classList.add('bg-gray-100','font-semibold'); break;
+    }
+  }
+
+  // init
+ render('dashboard');
+  document.getElementById('logoutBtn').onclick=()=>{ 
+    if(confirm('Logout?')) {
+      // Clear any stored user data
+      localStorage.removeItem('currentUser');
+      sessionStorage.removeItem('currentUser');
+      window.location.href = 'login.html'; 
+    } 
+  };
+  
+  // Add event listener for the Dashboard button
+  document.getElementById('dashboardBtn').onclick=()=>{ 
+    window.location.href = 'index.html'; 
+  };
+
+
+  // expose some functions for inline onclicks
+  window.render = render;
+  window.updateAppt = updateAppt;
+  window.deletePatient = deletePatient;
+  window.editPatient = editPatient;
+  window.openReschedule = openReschedule;
+  window.markCheck = markCheck;
+  window.saveAll = saveAll;
+  </script>
+</body>
+</html>

@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - MESMTF</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .gradient-bg {
+            background: linear-gradient(135deg, #1e40af 0%, #3b82f6 50%, #60a5fa 100%);
+        }
+        .card-shadow {
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+        }
+        .fade-in {
+            animation: fadeIn 0.5s ease-in;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .input-focus:focus {
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+            border-color: #3b82f6;
+        }
+    </style>
+</head>
+<body class="min-h-screen gradient-bg flex items-center justify-center p-4">
+    <div class="max-w-md w-full fade-in">
+        <!-- Header -->
+        <div class="text-center mb-8">
+            <div class="flex items-center justify-center mb-4">
+                <div class="bg-white p-3 rounded-full shadow-lg mr-3">
+                    <svg class="w-10 h-10 text-blue-600" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M19 8l-4 4h3c0 3.31-2.69 6-6 6-1.01 0-1.97-.25-2.8-.7l-1.46 1.46C8.97 19.54 10.43 20 12 20c4.42 0 8-3.58 8-8h3l-4-4zM6 12c0-3.31 2.69-6 6-6 1.01 0 1.97.25 2.8.7l1.46-1.46C15.03 4.46 13.57 4 12 4c-4.42 0-8 3.58-8 8H1l4 4 4-4H6z"/>
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="text-3xl font-bold text-white">MESMTF</h1>
+                    <p class="text-blue-100">Medical Expert System for Malaria & Typhoid Fever</p>
+                </div>
+            </div>
+            <div class="bg-white/10 backdrop-blur-sm rounded-lg p-4">
+                <h2 class="text-xl font-semibold text-white">Ministry of Health & Social Services</h2>
+            </div>
+        </div>
+
+        <!-- Login Card -->
+        <div class="bg-white rounded-xl card-shadow p-8">
+            <h3 class="text-2xl font-bold text-gray-800 mb-6 text-center">System Login</h3>
+            
+            <form id="loginForm" class="space-y-6">
+                <div>
+                    <label for="username" class="block text-sm font-medium text-gray-700 mb-2">Username</label>
+                    <input type="text" id="username" name="username" 
+                           class="w-full p-3 border border-gray-300 rounded-lg input-focus transition duration-200" 
+                           placeholder="Enter your username" required>
+                </div>
+                
+                <div>
+                    <label for="password" class="block text-sm font-medium text-gray-700 mb-2">Password</label>
+                    <input type="password" id="password" name="password" 
+                           class="w-full p-3 border border-gray-300 rounded-lg input-focus transition duration-200" 
+                           placeholder="Enter your password" required>
+                </div>
+                
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center">
+                        <input type="checkbox" id="remember" name="remember" class="h-4 w-4 text-blue-600 border-gray-300 rounded">
+                        <label for="remember" class="ml-2 block text-sm text-gray-700">Remember me</label>
+                    </div>
+                    <a href="#" class="text-sm text-blue-600 hover:text-blue-800">Forgot password?</a>
+                </div>
+                
+                <button type="submit" 
+                        class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition duration-200 flex items-center justify-center">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"></path>
+                    </svg>
+                    Sign In
+                </button>
+            </form>
+            
+            <div class="mt-6 pt-6 border-t border-gray-200">
+                <h4 class="font-semibold text-gray-800 mb-3 text-center">Demo Accounts</h4>
+                <div class="text-sm text-gray-600 space-y-2 bg-gray-50 p-4 rounded-lg">
+                    <div class="flex justify-between">
+                        <span><strong>Admin:</strong></span>
+                        <span>admin / admin123</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span><strong>Doctor:</strong></span>
+                        <span>dr.smith / doc123</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span><strong>Nurse:</strong></span>
+                        <span>nurse.jane / nurse123</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span><strong>Pharmacist:</strong></span>
+                        <span>pharm.mike / pharm123</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span><strong>Receptionist:</strong></span>
+                        <span>recep.mary / recep123</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mt-6 text-center">
+                <p class="text-gray-600">Don't have an account? 
+                    <a href="register.html" class="text-blue-600 hover:text-blue-800 font-medium">Register here</a>
+                </p>
+            </div>
+        </div>
+        
+        <!-- Back to Home -->
+        <div class="text-center mt-6">
+            <a href="index.html" class="text-white hover:text-blue-200 flex items-center justify-center">
+                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+                </svg>
+                Back to Home
+            </a>
+        </div>
+    </div>
+
+    <script>
+        // Get users from localStorage or initialize with default users
+        let users = JSON.parse(localStorage.getItem('users')) || [
+            {id: 1, username: 'admin', password: 'admin123', role: 'admin', name: 'System Administrator', email: 'admin@moh.gov'},
+            {id: 2, username: 'dr.smith', password: 'doc123', role: 'doctor', name: 'Dr. John Smith', email: 'j.smith@moh.gov', specialization: 'Internal Medicine'},
+            {id: 3, username: 'nurse.jane', password: 'nurse123', role: 'nurse', name: 'Jane Doe', email: 'j.doe@moh.gov', department: 'General Ward'},
+            {id: 4, username: 'pharm.mike', password: 'pharm123', role: 'pharmacist', name: 'Mike Johnson', email: 'm.johnson@moh.gov'},
+            {id: 5, username: 'recep.mary', password: 'recep123', role: 'receptionist', name: 'Mary Wilson', email: 'm.wilson@moh.gov'}
+        ];
+
+        // Save users to localStorage if not already saved
+        if (!localStorage.getItem('users')) {
+            localStorage.setItem('users', JSON.stringify(users));
+        }
+
+        // Handle login form submission
+        document.getElementById('loginForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const remember = document.getElementById('remember').checked;
+            
+            // Find user with matching credentials
+            const user = users.find(u => u.username === username && u.password === password);
+            
+            if (user) {
+                // Store current user info
+                const userInfo = {
+                    id: user.id,
+                    username: user.username,
+                    role: user.role,
+                    name: user.name
+                };
+                
+                // Save to sessionStorage (or localStorage if "Remember me" is checked)
+                if (remember) {
+                    localStorage.setItem('currentUser', JSON.stringify(userInfo));
+                } else {
+                    sessionStorage.setItem('currentUser', JSON.stringify(userInfo));
+                }
+                
+                // Show success message and redirect
+                showMessage('Login successful! Redirecting...', 'success');
+                
+                // Redirect based on user role
+                setTimeout(() => {
+                    switch(user.role) {
+                        case 'patient':
+                            window.location.href = 'patient.html';
+                            break;
+                        case 'doctor':
+                            window.location.href = 'doctor.html';
+                            break;
+                        case 'nurse':
+                            window.location.href = 'nurse.html';
+                            break;
+                        case 'pharmacist':
+                            window.location.href = 'patientsPage.html';
+                            break;
+                        case 'receptionist':
+                            window.location.href = 'reception.html';
+                            break;
+                        case 'admin':
+                            window.location.href = 'admin.html';
+                            break;
+                        default:
+                            window.location.href = 'dashboard.html';
+                    }
+                }, 1500);
+            } else {
+                showMessage('Invalid username or password!', 'error');
+            }
+        });
+
+        // Function to show messages
+        function showMessage(message, type) {
+            // Remove any existing message
+            const existingMessage = document.querySelector('.message');
+            if (existingMessage) {
+                existingMessage.remove();
+            }
+            
+            // Create message element
+            const messageEl = document.createElement('div');
+            messageEl.className = `message fixed top-4 right-4 p-4 rounded-lg shadow-lg z-50 ${
+                type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
+            }`;
+            messageEl.textContent = message;
+            
+            // Add to page
+            document.body.appendChild(messageEl);
+            
+            // Remove after 3 seconds
+            setTimeout(() => {
+                messageEl.remove();
+            }, 3000);
+        }
+
+        // Check if user is already logged in
+        window.addEventListener('DOMContentLoaded', () => {
+            const currentUser = JSON.parse(localStorage.getItem('currentUser') || sessionStorage.getItem('currentUser'));
+            
+            if (currentUser) {
+                // User is already logged in, redirect to appropriate page
+                switch(currentUser.role) {
+                    case 'patient':
+                        window.location.href = 'patient.html';
+                        break;
+                    case 'doctor':
+                        window.location.href = 'doctor.html';
+                        break;
+                    case 'nurse':
+                        window.location.href = 'nurse.html';
+                        break;
+                    case 'pharmacist':
+                        window.location.href = 'pharmacist.html';
+                        break;
+                    case 'receptionist':
+                        window.location.href = 'reception.html';
+                        break;
+                    case 'admin':
+                        window.location.href = 'admin.html';
+                        break;
+                    default:
+                        // Stay on login page
+                }
+            }
+        });
+    </script>
+</body>
+</html>

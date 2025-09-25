@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MESMTF - Login</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .gradient-bg {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 16px;
+            border-radius: 8px;
+            color: white;
+            z-index: 1000;
+            min-width: 300px;
+        }
+        .notification.success { background-color: #10b981; }
+        .notification.error { background-color: #ef4444; }
+        .notification.info { background-color: #3b82f6; }
+        .loading {
+            opacity: 0.7;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body class="min-h-screen gradient-bg flex items-center justify-center">
+    <div class="bg-white p-8 rounded-lg shadow-n2xl w-full max-w-md">
+        <div class="text-center mb-8">
+            <div class="text-4xl mb-4">🏥</div>
+            <h1 class="text-2xl font-bold text-gray-800 mb-2">MESMTF Login</h1>
+            <p class="text-gray-600">Medical Expert System for Malaria and Typhoid Fever</p>
+        </div>
+
+        <form id="loginForm" class="space-y-6">
+            <div>
+                <label for="username" class="block text-sm font-medium text-gray-700 mb-2">Username</label>
+                <input type="text" id="username" name="username" required
+                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                       placeholder="Enter your username">
+            </div>
+
+            <div>
+                <label for="password" class="block text-sm font-medium text-gray-700 mb-2">Password</label>
+                <input type="password" id="password" name="password" required
+                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                       placeholder="Enter your password">
+            </div>
+
+            <div class="flex items-center">
+                <input type="checkbox" id="remember" name="remember" class="mr-2">
+                <label for="remember" class="text-sm text-gray-600">Remember me</label>
+            </div>
+
+            <button type="submit" id="loginBtn"
+                    class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md transition duration-200">
+                Sign In
+            </button>
+        </form>
+
+        <div class="mt-6 text-center">
+            <p class="text-sm text-gray-600">
+                Don't have an account?
+                <a href="register.html" class="text-blue-600 hover:text-blue-800 font-medium">Register here</a>
+            </p>
+
+            <div class="mt-4 pt-4 border-t border-gray-200">
+                <p class="text-sm text-gray-600">Default credentials for testing:</p>
+                <div class="text-xs text-gray-500 mt-2">
+                    <div>Admin: admin / admin123</div>
+                    <div>Doctor: dr.smith / doctor123</div>
+                    <div>Patient: patient.john / patient123</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Configuration
+        const API_BASE_URL = 'http://localhost:8080/api';
+        
+        // Utility functions
+        function showNotification(message, type = 'info') {
+            // Remove existing notifications
+            const existing = document.querySelector('.notification');
+            if (existing) existing.remove();
+            
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.textContent = message;
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.parentNode.removeChild(notification);
+                }
+            }, 5000);
+        }
+        
+        function setLoading(element, loading) {
+            if (loading) {
+                element.classList.add('loading');
+                element.textContent = 'Signing in...';
+            } else {
+                element.classList.remove('loading');
+                element.textContent = 'Sign In';
+            }
+        }
+        
+        // Authentication functions
+        async function login(credentials) {
+            try {
+                const response = await fetch(`${API_BASE_URL}/auth/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(credentials)
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.success) {
+                    // Store authentication data
+                    localStorage.setItem('mesmtf_access_token', data.token);
+                    localStorage.setItem('mesmtf_refresh_token', data.refreshToken);
+                    localStorage.setItem('mesmtf_user_data', JSON.stringify(data.user));
+                    
+                    return { success: true, user: data.user };
+                } else {
+                    return { success: false, error: data.error || 'Login failed' };
+                }
+            } catch (error) {
+                console.error('Login error:', error);
+                return { success: false, error: 'Cannot connect to server. Please check if the backend is running.' };
+            }
+        }
+        
+        function redirectToRolePage(role) {
+            const rolePages = {
+                patient: 'patient.html',
+                doctor: 'doctor.html',
+                nurse: 'nurse.html',
+                pharmacist: 'patientsPage.html',
+                receptionist: 'reception.html',
+                admin: 'admin.html'
+            };
+            
+            const targetPage = rolePages[role] || 'index.html';
+            window.location.href = targetPage;
+        }
+        
+        // Check if user is already logged in
+        function checkExistingLogin() {
+            const token = localStorage.getItem('mesmtf_access_token');
+            const userData = localStorage.getItem('mesmtf_user_data');
+            
+            if (token && userData) {
+                try {
+                    const user = JSON.parse(userData);
+                    showNotification('You are already logged in. Redirecting...', 'info');
+                    setTimeout(() => redirectToRolePage(user.role), 1500);
+                } catch (error) {
+                    // Clear invalid data
+                    localStorage.removeItem('mesmtf_access_token');
+                    localStorage.removeItem('mesmtf_refresh_token');
+                    localStorage.removeItem('mesmtf_user_data');
+                }
+            }
+        }
+        
+        // Handle form submission
+        document.getElementById('loginForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value;
+            const remember = document.getElementById('remember').checked;
+            const loginBtn = document.getElementById('loginBtn');
+            
+            if (!username || !password) {
+                showNotification('Please enter both username and password', 'error');
+                return;
+            }
+            
+            setLoading(loginBtn, true);
+            
+            try {
+                const result = await login({ username, password, rememberMe: remember });
+                
+                if (result.success) {
+                    showNotification(`Welcome, ${result.user.name}! Redirecting...`, 'success');
+                    setTimeout(() => redirectToRolePage(result.user.role), 1500);
+                } else {
+                    showNotification(result.error, 'error');
+                }
+            } catch (error) {
+                showNotification('Login failed. Please try again.', 'error');
+            } finally {
+                setLoading(loginBtn, false);
+            }
+        });
+        
+        // Test backend connection on page load
+        async function testBackendConnection() {
+            try {
+                const response = await fetch('http://localhost:8080/health');
+                if (!response.ok) {
+                    showNotification('Backend server is not responding. Please start the backend server.', 'error');
+                }
+            } catch (error) {
+                showNotification('Cannot connect to backend server. Please make sure it is running on port 8080.', 'error');
+            }
+        }
+        
+        // Initialize
+        window.addEventListener('load', () => {
+            checkExistingLogin();
+            testBackendConnection();
+        });
+    </script>
+</body>
+</html>

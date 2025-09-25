@@ -1,4 +1,4 @@
-import User from '../models/User.js';
+import User from '../models/User.pg.js';
 import { validationResult } from 'express-validator';
 
 /**
@@ -49,14 +49,16 @@ export const getUsers = async (req, res, next) => {
     const skip = (page - 1) * limit;
 
     // Get users with pagination
-    const users = await User.find(filter)
-      .select('-password -refreshToken')
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(parseInt(limit));
+    const users = await User.findAll({
+      where: filter,
+      attributes: { exclude: ['password', 'refreshToken'] },
+      order: [['createdAt', 'DESC']],
+      offset: skip,
+      limit: parseInt(limit)
+    });
 
     // Get total count for pagination
-    const total = await User.countDocuments(filter);
+    const total = await User.count({ where: filter });
 
     res.status(200).json({
       success: true,
@@ -97,7 +99,9 @@ export const getUsers = async (req, res, next) => {
  */
 export const getUser = async (req, res, next) => {
   try {
-    const user = await User.findById(req.params.id).select('-password -refreshToken');
+    const user = await User.findByPk(req.params.id, {
+      attributes: { exclude: ['password', 'refreshToken'] }
+    });
 
     if (!user) {
       return res.status(404).json({

@@ -90,19 +90,11 @@
                     </div>
                     <div class="flex justify-between">
                         <span><strong>Doctor:</strong></span>
-                        <span>dr.smith / doc123</span>
+                        <span>dr.smith / doctor123</span>
                     </div>
                     <div class="flex justify-between">
-                        <span><strong>Nurse:</strong></span>
-                        <span>nurse.jane / nurse123</span>
-                    </div>
-                    <div class="flex justify-between">
-                        <span><strong>Pharmacist:</strong></span>
-                        <span>pharm.mike / pharm123</span>
-                    </div>
-                    <div class="flex justify-between">
-                        <span><strong>Receptionist:</strong></span>
-                        <span>recep.mary / recep123</span>
+                        <span><strong>Patient:</strong></span>
+                        <span>patient.john / patient123</span>
                     </div>
                 </div>
             </div>
@@ -125,20 +117,122 @@
         </div>
     </div>
 
-    <!-- API Integration Scripts -->
-    <script type="module" src="frontend/js/api/config.js"></script>
-    <script type="module" src="frontend/js/api/httpClient.js"></script>
-    <script type="module" src="frontend/js/api/auth.js"></script>
-    <script type="module" src="frontend/js/api/services.js"></script>
-    <link rel="stylesheet" href="frontend/css/api-components.css">
+    <!-- PostgreSQL Backend Integration -->
 
-    <script type="module">
-        import { AuthService } from './frontend/js/api/auth.js';
-        import { UtilityService } from './frontend/js/api/services.js';
+    <script>
+        // PostgreSQL Backend Configuration
+        const API_BASE_URL = 'http://localhost:8080/api';
+
+        // Show notification function
+        function showNotification(message, type = 'info') {
+            // Remove any existing notification
+            const existingNotification = document.querySelector('.notification');
+            if (existingNotification) {
+                existingNotification.remove();
+            }
+
+            // Create notification element
+            const notification = document.createElement('div');
+            notification.className = `notification fixed top-4 right-4 p-4 rounded-lg shadow-lg z-50 transition-all duration-300 ${
+                type === 'success' ? 'bg-green-500 text-white' :
+                type === 'error' ? 'bg-red-500 text-white' :
+                'bg-blue-500 text-white'
+            }`;
+            notification.textContent = message;
+
+            // Add to page
+            document.body.appendChild(notification);
+
+            // Remove after 5 seconds
+            setTimeout(() => {
+                notification.style.opacity = '0';
+                setTimeout(() => notification.remove(), 300);
+            }, 5000);
+        }
+
+        function setLoading(element, loading) {
+            if (loading) {
+                element.classList.add('opacity-50', 'cursor-not-allowed');
+                element.disabled = true;
+                element.innerHTML = `
+                    <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Signing in...
+                `;
+            } else {
+                element.classList.remove('opacity-50', 'cursor-not-allowed');
+                element.disabled = false;
+                element.innerHTML = `
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"></path>
+                    </svg>
+                    Sign In
+                `;
+            }
+        }
+
+        // Authentication functions
+        async function login(credentials) {
+            try {
+                const response = await fetch(`${API_BASE_URL}/auth/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(credentials)
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    // Store authentication data
+                    localStorage.setItem('mesmtf_access_token', data.token);
+                    localStorage.setItem('mesmtf_refresh_token', data.refreshToken);
+                    localStorage.setItem('mesmtf_user_data', JSON.stringify(data.user));
+
+                    return { success: true, user: data.user };
+                } else {
+                    return { success: false, error: data.error || 'Login failed' };
+                }
+            } catch (error) {
+                console.error('Login error:', error);
+                return { success: false, error: 'Cannot connect to server. Please check if the backend is running.' };
+            }
+        }
+
+        function redirectToRolePage(role) {
+            const rolePages = {
+                patient: 'patient.html',
+                doctor: 'doctor.html',
+                nurse: 'nurse.html',
+                pharmacist: 'pharmacist.html',
+                receptionist: 'reception.html',
+                admin: 'admin.html'
+            };
+
+            const targetPage = rolePages[role] || 'index.html';
+            window.location.href = targetPage;
+        }
 
         // Check if user is already logged in
-        if (AuthService.isAuthenticated) {
-            AuthService.redirectToRolePage();
+        function checkExistingLogin() {
+            const token = localStorage.getItem('mesmtf_access_token');
+            const userData = localStorage.getItem('mesmtf_user_data');
+
+            if (token && userData) {
+                try {
+                    const user = JSON.parse(userData);
+                    showNotification('You are already logged in. Redirecting...', 'info');
+                    setTimeout(() => redirectToRolePage(user.role), 1500);
+                } catch (error) {
+                    // Clear invalid data
+                    localStorage.removeItem('mesmtf_access_token');
+                    localStorage.removeItem('mesmtf_refresh_token');
+                    localStorage.removeItem('mesmtf_user_data');
+                }
+            }
         }
 
         // Handle login form submission
@@ -152,92 +246,42 @@
 
             // Validate inputs
             if (!username || !password) {
-                showMessage('Please enter both username and password!', 'error');
+                showNotification('Please enter both username and password!', 'error');
                 return;
             }
 
             // Show loading state
-            UtilityService.showLoading(submitBtn);
+            setLoading(submitBtn, true);
 
             try {
-                // Attempt login via API
-                const result = await AuthService.login({
+                // Attempt login
+                const result = await login({
                     username,
                     password,
                     rememberMe: remember
                 });
 
                 if (result.success) {
-                    showMessage('Login successful! Redirecting...', 'success');
+                    showNotification(`Welcome back, ${result.user.name}! Redirecting to ${result.user.role} dashboard...`, 'success');
 
                     // Redirect based on user role after a short delay
                     setTimeout(() => {
-                        AuthService.redirectToRolePage();
-                    }, 1500);
+                        redirectToRolePage(result.user.role);
+                    }, 2000);
                 } else {
-                    showMessage(result.error || 'Invalid username or password!', 'error');
+                    showNotification(result.error || 'Invalid username or password!', 'error');
                 }
             } catch (error) {
                 console.error('Login error:', error);
-                showMessage('Login failed. Please try again.', 'error');
+                showNotification('Login failed. Please try again.', 'error');
             } finally {
-                UtilityService.hideLoading(submitBtn);
+                setLoading(submitBtn, false);
             }
         });
 
-        // Function to show messages
-        function showMessage(message, type) {
-            // Remove any existing message
-            const existingMessage = document.querySelector('.message');
-            if (existingMessage) {
-                existingMessage.remove();
-            }
-            
-            // Create message element
-            const messageEl = document.createElement('div');
-            messageEl.className = `message fixed top-4 right-4 p-4 rounded-lg shadow-lg z-50 ${
-                type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
-            }`;
-            messageEl.textContent = message;
-            
-            // Add to page
-            document.body.appendChild(messageEl);
-            
-            // Remove after 3 seconds
-            setTimeout(() => {
-                messageEl.remove();
-            }, 3000);
-        }
-
-        // Check if user is already logged in
+        // Initialize page
         window.addEventListener('DOMContentLoaded', () => {
-            const currentUser = JSON.parse(localStorage.getItem('currentUser') || sessionStorage.getItem('currentUser'));
-            
-            if (currentUser) {
-                // User is already logged in, redirect to appropriate page
-                switch(currentUser.role) {
-                    case 'patient':
-                        window.location.href = 'patient.html';
-                        break;
-                    case 'doctor':
-                        window.location.href = 'doctor.html';
-                        break;
-                    case 'nurse':
-                        window.location.href = 'nurse.html';
-                        break;
-                    case 'pharmacist':
-                        window.location.href = 'pharmacist.html';
-                        break;
-                    case 'receptionist':
-                        window.location.href = 'reception.html';
-                        break;
-                    case 'admin':
-                        window.location.href = 'admin.html';
-                        break;
-                    default:
-                        // Stay on login page
-                }
-            }
+            checkExistingLogin();
         });
     </script>
 </body>

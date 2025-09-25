@@ -1,4 +1,4 @@
-import User from '../models/User.js';
+import User from '../models/User.pg.js';
 import Patient from '../models/Patient.js';
 import Appointment from '../models/Appointment.js';
 import Diagnosis from '../models/Diagnosis.js';

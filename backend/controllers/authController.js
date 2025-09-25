@@ -1,4 +1,4 @@
-import User from '../models/User.js';
+import User from '../models/User.pg.js';
 import jwt from 'jsonwebtoken';
 import { validationResult } from 'express-validator';
 
@@ -29,7 +29,7 @@ const sendTokenResponse = (user, statusCode, res) => {
 
   const options = {
     expires: new Date(
-      Date.now() + process.env.JWT_COOKIE_EXPIRE * 24 * 60 * 60 * 1000
+      Date.now() + (process.env.JWT_COOKIE_EXPIRE || 7) * 24 * 60 * 60 * 1000
     ),
     httpOnly: true,
   };
@@ -113,7 +113,12 @@ export const register = async (req, res, next) => {
 
     // Check if user already exists
     const existingUser = await User.findOne({
-      $or: [{ email }, { username }]
+      where: {
+        [User.sequelize.Sequelize.Op.or]: [
+          { email },
+          { username }
+        ]
+      }
     });
 
     if (existingUser) {
@@ -181,9 +186,7 @@ export const login = async (req, res, next) => {
     const { username, password } = req.body;
 
     // Check for user (username can be email or username)
-    const user = await User.findOne({
-      $or: [{ email: username }, { username: username }]
-    }).select('+password');
+    const user = await User.findByLogin(username);
 
     if (!user) {
       return res.status(401).json({

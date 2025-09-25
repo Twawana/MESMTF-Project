@@ -1,5 +1,4 @@
 import express from 'express';
-import mongoose from 'mongoose';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
@@ -7,6 +6,7 @@ import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
 import swaggerJsdoc from 'swagger-jsdoc';
 import swaggerUi from 'swagger-ui-express';
+import { connectDB } from './config/database.js';
 
 // Import routes
 import authRoutes from './routes/auth.js';
@@ -27,18 +27,7 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Database connection
-const connectDB = async () => {
-  try {
-    const conn = await mongoose.connect(process.env.MONGODB_URI);
-    console.log(`MongoDB Connected: ${conn.connection.host}`);
-  } catch (error) {
-    console.error('Database connection error:', error);
-    process.exit(1);
-  }
-};
-
-// Connect to database
+// Connect to PostgreSQL database
 connectDB();
 
 // Swagger configuration

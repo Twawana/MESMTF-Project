@@ -1,5 +1,5 @@
 import Patient from '../models/Patient.js';
-import User from '../models/User.js';
+import User from '../models/User.pg.js';
 import { validationResult } from 'express-validator';
 
 /**

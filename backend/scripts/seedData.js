@@ -420,7 +420,8 @@ const seedDatabase = async () => {
 };
 
 // Run seeding if this file is executed directly
-if (import.meta.url === `file://${process.argv[1]}`) {
+const isMainModule = process.argv[1] && process.argv[1].endsWith('seedData.js');
+if (isMainModule) {
   seedDatabase();
 }
 

@@ -85,7 +85,15 @@ const limiter = rateLimit({
 // Middleware
 app.use(helmet());
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
+  origin: [
+    'http://localhost:3000',
+    'http://127.0.0.1:5500',
+    'http://localhost:5500',
+    'http://127.0.0.1:5501',
+    'http://localhost:5501',
+    'http://127.0.0.1:3000',
+    process.env.CORS_ORIGIN
+  ].filter(Boolean),
   credentials: true,
 }));
 app.use(morgan('combined'));
@@ -119,12 +127,15 @@ app.use('/api/admin', adminRoutes);
 app.use(notFound);
 app.use(errorHandler);
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`🚀 MESMTF Backend Server running on port ${PORT}`);
-  console.log(`📚 API Documentation available at http://localhost:${PORT}/api-docs`);
-  console.log(`🏥 Hospital: ${process.env.HOSPITAL_NAME}`);
-  console.log(`📍 Location: ${process.env.HOSPITAL_LOCATION}`);
-});
+// Start server only if this file is run directly (not imported)
+const isMainModule = process.argv[1] && process.argv[1].endsWith('server.js');
+if (isMainModule) {
+  app.listen(PORT, () => {
+    console.log(`🚀 MESMTF Backend Server running on port ${PORT}`);
+    console.log(`📚 API Documentation available at http://localhost:${PORT}/api-docs`);
+    console.log(`🏥 Hospital: ${process.env.HOSPITAL_NAME}`);
+    console.log(`📍 Location: ${process.env.HOSPITAL_LOCATION}`);
+  });
+}
 
 export default app;

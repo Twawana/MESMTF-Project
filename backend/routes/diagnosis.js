@@ -5,7 +5,8 @@ import {
   getDiagnosis,
   createDiagnosis,
   updateDiagnosis,
-  getExpertSystemAssessment
+  getExpertSystemAssessment,
+  savePatientDiagnosis
 } from '../controllers/diagnosisController.js';
 import { protect, authorize } from '../middleware/auth.js';
 
@@ -87,6 +88,14 @@ router.route('/')
   .post(authorize('doctor'), createDiagnosisValidation, createDiagnosis);
 
 router.post('/expert-system/assess', authorize('doctor', 'nurse'), expertSystemValidation, getExpertSystemAssessment);
+
+// Patient AI diagnosis endpoint
+router.post('/patient-ai', authorize('patient'), [
+  body('symptoms').optional().isArray().withMessage('Symptoms must be an array'),
+  body('diagnosis').optional().isString().withMessage('Diagnosis must be a string'),
+  body('confidence').optional().isString().withMessage('Confidence must be a string'),
+  body('recommendations').optional().isString().withMessage('Recommendations must be a string')
+], savePatientDiagnosis);
 
 router.route('/:id')
   .get(getDiagnosis)

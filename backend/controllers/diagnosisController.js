@@ -1,6 +1,5 @@
-import Diagnosis from '../models/Diagnosis.js';
-import Patient from '../models/Patient.js';
-import Appointment from '../models/Appointment.js';
+// PostgreSQL models
+import User from '../models/User.pg.js';
 import { validationResult } from 'express-validator';
 
 // Malaria and Typhoid Expert System Logic
@@ -396,10 +395,10 @@ export const getExpertSystemAssessment = async (req, res, next) => {
         malaria: {
           riskLevel: malariaAssessment.riskLevel,
           score: malariaAssessment.score,
-          matchingSymptoms: symptoms.filter(s => 
+          matchingSymptoms: symptoms.filter(s =>
             malariaSymptoms.includes(s.symptom.toLowerCase())
           ).map(s => s.symptom),
-          recommendation: malariaAssessment.riskLevel === 'high' ? 
+          recommendation: malariaAssessment.riskLevel === 'high' ?
             'Immediate malaria testing and treatment recommended' :
             malariaAssessment.riskLevel === 'moderate' ?
             'Consider malaria testing' : 'Low malaria risk'
@@ -407,10 +406,10 @@ export const getExpertSystemAssessment = async (req, res, next) => {
         typhoid: {
           riskLevel: typhoidAssessment.riskLevel,
           score: typhoidAssessment.score,
-          matchingSymptoms: symptoms.filter(s => 
+          matchingSymptoms: symptoms.filter(s =>
             typhoidSymptoms.includes(s.symptom.toLowerCase())
           ).map(s => s.symptom),
-          recommendation: typhoidAssessment.riskLevel === 'high' ? 
+          recommendation: typhoidAssessment.riskLevel === 'high' ?
             'Immediate typhoid testing and treatment recommended' :
             typhoidAssessment.riskLevel === 'moderate' ?
             'Consider typhoid testing' : 'Low typhoid risk'
@@ -418,6 +417,75 @@ export const getExpertSystemAssessment = async (req, res, next) => {
       }
     });
   } catch (error) {
+    next(error);
+  }
+};
+
+// Simple AI diagnosis endpoint for patient portal
+export const savePatientDiagnosis = async (req, res, next) => {
+  try {
+    const { symptoms, diagnosis, confidence, malariaScore, typhoidScore, recommendations } = req.body;
+
+    if (!req.user || req.user.role !== 'patient') {
+      return res.status(403).json({
+        success: false,
+        error: 'Access denied. Patients only.'
+      });
+    }
+
+    // Update user profile with diagnosis history
+    const user = await User.findByPk(req.user.id);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        error: 'User not found'
+      });
+    }
+
+    // Get existing profile or create new one
+    const profile = user.profile || {};
+    const diagnosisHistory = profile.diagnosisHistory || [];
+
+    // Add new diagnosis
+    const newDiagnosis = {
+      id: Date.now().toString(),
+      symptoms: symptoms || [],
+      diagnosis: diagnosis || 'Unknown',
+      confidence: confidence || 'Low',
+      malariaScore: malariaScore || 0,
+      typhoidScore: typhoidScore || 0,
+      recommendations: recommendations || '',
+      timestamp: new Date().toISOString(),
+      aiGenerated: true
+    };
+
+    diagnosisHistory.unshift(newDiagnosis); // Add to beginning
+
+    // Keep only last 10 diagnoses
+    if (diagnosisHistory.length > 10) {
+      diagnosisHistory.splice(10);
+    }
+
+    // Update user profile
+    await user.update({
+      profile: {
+        ...profile,
+        diagnosisHistory
+      }
+    });
+
+    res.status(201).json({
+      success: true,
+      message: 'Diagnosis saved successfully',
+      data: {
+        id: newDiagnosis.id,
+        diagnosis: newDiagnosis.diagnosis,
+        confidence: newDiagnosis.confidence,
+        timestamp: newDiagnosis.timestamp
+      }
+    });
+  } catch (error) {
+    console.error('Save diagnosis error:', error);
     next(error);
   }
 };

@@ -6,8 +6,9 @@ import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
 import { connectDB } from './config/database.js';
 
-// Import only auth routes for now
+// Import routes
 import authRoutes from './routes/auth.js';
+import diagnosisRoutes from './routes/diagnosis.js';
 
 // Import middleware
 import { errorHandler } from './middleware/errorHandler.js';
@@ -76,6 +77,8 @@ app.get('/health', (req, res) => {
 
 // API routes
 app.use('/api/auth', authRoutes);
+app.use('/api/diagnosis', diagnosisRoutes);
+app.use('/api/diagnosis', diagnosisRoutes);
 
 // Basic API info
 app.get('/api', (req, res) => {

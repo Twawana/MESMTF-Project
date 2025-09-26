@@ -1,8 +1,9 @@
 import User from '../models/User.pg.js';
-import Patient from '../models/Patient.js';
-import Appointment from '../models/Appointment.js';
-import Diagnosis from '../models/Diagnosis.js';
-import Prescription from '../models/Prescription.js';
+import Patient from '../models/Patient.pg.js';
+// Note: Appointment, Diagnosis, and Prescription models need to be created for PostgreSQL
+// import Appointment from '../models/Appointment.pg.js';
+// import Diagnosis from '../models/Diagnosis.pg.js';
+// import Prescription from '../models/Prescription.pg.js';
 
 /**
  * @swagger

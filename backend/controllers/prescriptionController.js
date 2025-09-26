@@ -1,6 +1,7 @@
-import Prescription from '../models/Prescription.js';
-import Patient from '../models/Patient.js';
-import Diagnosis from '../models/Diagnosis.js';
+// Note: These models need to be created for PostgreSQL
+// import Prescription from '../models/Prescription.pg.js';
+import Patient from '../models/Patient.pg.js';
+// import Diagnosis from '../models/Diagnosis.pg.js';
 import { validationResult } from 'express-validator';
 
 /**

@@ -1,6 +1,7 @@
-import Appointment from '../models/Appointment.js';
-import Patient from '../models/Patient.js';
-import User from '../models/User.js';
+// Note: These models need to be created for PostgreSQL
+// import Appointment from '../models/Appointment.pg.js';
+import Patient from '../models/Patient.pg.js';
+import User from '../models/User.pg.js';
 import { validationResult } from 'express-validator';
 
 /**
